@@ -60,7 +60,6 @@ fun LazyListScope.simpleHome(
     onDetails: () -> Unit,
     onSettings: () -> Unit,
     onDone: (List<Pair<String, Double>>) -> Unit,
-    onCapitalMode: (String) -> Unit = {},
 ) {
     item {
         Text(hello(), style = MaterialTheme.typography.titleLarge, color = Xp.Ice, modifier = Modifier.padding(start = 4.dp, top = 4.dp, bottom = 12.dp))
@@ -74,7 +73,7 @@ fun LazyListScope.simpleHome(
         Glass(padding = 22, onClick = if (hasKey) ({ detail = !detail }) else null) {
             if (hasKey) {
                 // Juste les faits : ce que tu as mis en DCA, et ce que tu possèdes aujourd'hui.
-                Muted(a.snap.settings.startDate?.let { "Mon DCA depuis le " + java.text.SimpleDateFormat("d MMMM yyyy", java.util.Locale.FRANCE).format(java.util.Date(it)) } ?: "Mon DCA", small = false)
+                Muted("Mon DCA crypto", small = false)
                 Spacer(Modifier.height(10.dp))
                 Row(Modifier.fillMaxWidth()) {
                     Column(Modifier.weight(1f)) {
@@ -90,15 +89,7 @@ fun LazyListScope.simpleHome(
                 Text(if (detail) "Masquer le détail ▲" else "D'où vient « J'ai mis » ? ▼", style = MaterialTheme.typography.labelLarge, color = Xp.Cyan)
                 if (detail) {
                     Spacer(Modifier.height(8.dp))
-                    val mode = a.snap.settings.capitalMode
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Pill("Seulement mes virements", mode == be.maikel.xplorer.data.Settings.CAPITAL_TRANSFERS, { onCapitalMode(be.maikel.xplorer.data.Settings.CAPITAL_TRANSFERS) })
-                        Pill("Avec la valeur de départ", mode == be.maikel.xplorer.data.Settings.CAPITAL_START_VALUE, { onCapitalMode(be.maikel.xplorer.data.Settings.CAPITAL_START_VALUE) })
-                    }
-                    Spacer(Modifier.height(4.dp))
-                    Muted(if (mode == be.maikel.xplorer.data.Settings.CAPITAL_TRANSFERS) "Uniquement l'argent qui est vraiment entré ou sorti depuis le départ." else "Ce que valaient tes cryptos au départ, plus l'argent entré ou sorti ensuite.")
-                    Spacer(Modifier.height(8.dp))
-                    val fmt = java.text.SimpleDateFormat("d MMM", java.util.Locale.FRANCE)
+                    val fmt = java.text.SimpleDateFormat("d MMM yyyy", java.util.Locale.FRANCE)
                     a.capitalLines.forEach { c ->
                         Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
@@ -111,12 +102,12 @@ fun LazyListScope.simpleHome(
                     if (a.capitalLines.isEmpty()) Muted("Aucun mouvement lu depuis le départ.")
                     Divider()
                     Row(Modifier.fillMaxWidth().padding(top = 6.dp)) {
-                        Text("Total « J'ai mis »", style = MaterialTheme.typography.titleSmall, color = Color.White, modifier = Modifier.weight(1f))
+                        Text("Total des virements", style = MaterialTheme.typography.titleSmall, color = Color.White, modifier = Modifier.weight(1f))
                         Text(Money.eur(a.capital, 2), style = MaterialTheme.typography.titleSmall, color = Color.White)
                     }
                     if (a.capitalManual) Muted("Montant corrigé à la main dans les réglages.")
                     Spacer(Modifier.height(4.dp))
-                    Muted("Lu chez Coinbase avec ta clé (lecture seule) : chaque virement et retrait en euros, et chaque crypto envoyée ou reçue, à sa valeur du jour. Les achats et ventes à l'intérieur de Coinbase ne comptent pas.")
+                    Muted("« J'ai mis » = la somme de tes virements de ta banque vers Coinbase, lus avec ta clé (lecture seule). Les retraits et les dépenses carte ne sont pas déduits.")
                 }
             } else {
                 Spacer(Modifier.height(10.dp))

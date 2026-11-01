@@ -154,7 +154,7 @@ private fun App(vm: AppViewModel) {
             s.error?.let { Box(Modifier.padding(horizontal = 16.dp)) { Banner(it) } }
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp)) {
                 when (tab) {
-                    0 -> simpleHome(s.analysis, s.hasKey, { asset = it }, { tab = 1; detail = 0 }, { tab = SETTINGS }, { vm.addIntents(it) }) { m -> vm.updateSettings { it.copy(capitalMode = m) } }
+                    0 -> simpleHome(s.analysis, s.hasKey, { asset = it }, { tab = 1; detail = 0 }, { tab = SETTINGS }, { vm.addIntents(it) })
                     1 -> {
                         item {
                             Row(Modifier.padding(bottom = 6.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {

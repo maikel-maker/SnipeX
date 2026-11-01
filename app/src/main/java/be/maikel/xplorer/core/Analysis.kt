@@ -1,6 +1,5 @@
 package be.maikel.xplorer.core
 
-import be.maikel.xplorer.data.Settings
 import be.maikel.xplorer.data.Snapshot
 import be.maikel.xplorer.domain.Arena
 import be.maikel.xplorer.domain.AssetContext
@@ -105,41 +104,15 @@ object Analyzer {
 
         val capitalManual = st.capitalOverride != null
         val sinceStart = st.startDate != null && history?.startValue != null
-        val onlyTransfers = st.capitalMode == Settings.CAPITAL_TRANSFERS
-        // Mouvements d'argent lus chez Coinbase : virements, retraits, cryptos envoyées ou reçues.
-        val startDay = st.startDate?.let { History.dayOf(it) }
-        // Mode « mes virements » : dès le jour de départ inclus. Mode « valeur de départ » : le lendemain (le jour même est dans la valeur).
-        val from = when {
-            startDay == null -> Long.MIN_VALUE
-            onlyTransfers -> startDay
-            sinceStart -> startDay + 1
-            else -> Long.MIN_VALUE
-        }
-        val flowLines = s.ops.filter { op ->
-            ((op.type in Ledger.FIAT_FLOW && Ledger.isCash(op.cur)) || op.type in Ledger.EXTERNAL_TYPES || op.type in Ledger.CARD_TYPES) && History.dayOf(op.t) >= from
-        }.sortedByDescending { it.t }.map { op ->
-            val e = if (op.cur in Ledger.EURLIKE) op.amount else op.eur
-            val label = when (op.type) {
-                "fiat_deposit" -> "Virement vers Coinbase"
-                "fiat_withdrawal" -> "Retrait vers ta banque"
-                "send" -> if (e < 0) "${op.cur} envoyé hors de Coinbase" else "${op.cur} reçu"
-                "receive" -> "${op.cur} reçu de l'extérieur"
-                in Ledger.CARD_TYPES -> if (e < 0) "Dépense carte Coinbase (${op.cur})" else "Remboursement carte Coinbase"
-                else -> "${op.type} ${op.cur}"
-            }
-            CapitalLine(op.t, label, e)
-        }
-        val capitalLines = if (!onlyTransfers && sinceStart && st.startDate != null)
-            flowLines + CapitalLine(st.startDate, "Valeur de tes cryptos au départ", history!!.startValue ?: 0.0)
-        else flowLines
-        // Valeur de départ + mouvements (mode historique), ou seulement l'argent réellement versé (mode par défaut).
-        val autoCapital = when {
-            onlyTransfers -> flowLines.sumOf { it.eur }
-            sinceStart -> history!!.points.last().capital
-            else -> ledger.capitalNet
-        }
+        // « J'ai mis » = uniquement les virements reçus de ta banque sur Coinbase (choix de Maïkel, 01/11/2026).
+        // Ni retraits, ni dépenses carte, ni valeur de départ : seulement l'argent que tu as mis pour la crypto.
+        val capitalLines = s.ops.filter { op -> op.type == "fiat_deposit" && Ledger.isCash(op.cur) }
+            .map { op -> CapitalLine(op.t, "Virement vers Coinbase", if (op.cur in Ledger.EURLIKE) op.amount else op.eur) }
+            .filter { it.eur > 0 }
+            .sortedByDescending { it.t }
+        val autoCapital = capitalLines.sumOf { it.eur }
         val capital = st.capitalOverride ?: autoCapital
-        val gain = ledger.totalEur - capital - (if (sinceStart || capitalManual || onlyTransfers) 0.0 else ledger.externalNetEur)
+        val gain = ledger.totalEur - capital
         val lifetimeGain = ledger.totalEur - ledger.capitalNet - ledger.externalNetEur
         val gainPct = if (capital > 0) gain / capital else Double.NaN
 
