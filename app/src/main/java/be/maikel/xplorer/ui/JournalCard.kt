@@ -2,17 +2,15 @@ package be.maikel.xplorer.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -33,11 +31,13 @@ import be.maikel.xplorer.core.Analysis
 import be.maikel.xplorer.domain.DcaJournal
 import be.maikel.xplorer.domain.Money
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
 private val dayFmt = SimpleDateFormat("d MMM", Locale.FRANCE).apply { timeZone = TimeZone.getTimeZone("UTC") }
+private val monthFmt = SimpleDateFormat("MMMM yyyy", Locale.FRANCE)
 
 /** Bandeau « ne panique pas » quand le Bitcoin chute fort sur 7 jours. */
 @Composable
@@ -56,57 +56,65 @@ fun calmBanner(drop: Double) {
     }
 }
 
-/** Le journal du DCA : semaines faites, montants réels et frais. */
+/** Mois (année × 12 + mois) d'une semaine, d'après son lundi. */
+private fun monthKey(w: DcaJournal.Week): Int =
+    Calendar.getInstance().apply { timeInMillis = w.start + 43_200_000L }.let { it.get(Calendar.YEAR) * 12 + it.get(Calendar.MONTH) }
+
+private fun monthName(w: DcaJournal.Week): String =
+    monthFmt.format(Date(w.start + 43_200_000L)).replaceFirstChar { it.uppercase() }
+
+/** Mon suivi DCA : mois par mois, ce que tu as acheté face à ton budget, puis le détail des semaines. */
 @Composable
 fun journalCard(a: Analysis) {
     val j = a.journal ?: return
     if (j.weeks.isEmpty()) return
-    var all by rememberSaveable { mutableStateOf(false) }
-    SectionTitle("📒 Mon journal DCA")
+    var older by rememberSaveable { mutableStateOf(false) }
+    val months = j.weeks.groupBy { monthKey(it) }.entries.sortedByDescending { it.key }
+    val currentMonday = DcaJournal.weekStart(System.currentTimeMillis())
+
+    SectionTitle("📒 Mon suivi DCA")
     Glass(padding = 18) {
-        // Série : semaines faites d'affilée, en partant de la dernière semaine terminée.
-        val finished = j.weeks.drop(1)
-        val streak = finished.takeWhile { it.done }.size + (if (j.weeks.first().done) 1 else 0)
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("${j.doneWeeks} semaine(s) faite(s) sur ${j.weeks.size}", style = MaterialTheme.typography.titleMedium, color = Color.White, fontWeight = FontWeight.Bold)
-                Muted("${Money.eur(j.totalBought, 0)} achetés depuis le départ")
-            }
-            Column(horizontalAlignment = Alignment.End) {
-                Text("🔥 $streak", style = MaterialTheme.typography.headlineMedium, color = if (streak > 0) Vivid.Sun else Xp.Slate)
-                Muted("d'affilée")
-            }
-        }
-        Spacer(Modifier.height(12.dp))
-        // Une pastille par semaine, la plus ancienne à gauche.
-        Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-            j.weeks.take(12).reversed().forEach { w ->
-                val c = when { w.done -> Feu.Vert; w.partial -> Feu.Orange; else -> Feu.Rouge.copy(alpha = 0.6f) }
-                Box(Modifier.size(18.dp).clip(RoundedCornerShape(5.dp)).background(c))
-            }
-        }
-        Spacer(Modifier.height(4.dp))
-        Muted("🟩 faite · 🟧 partielle · 🟥 manquée (12 dernières semaines)")
-        Spacer(Modifier.height(12.dp))
+        months.forEachIndexed { idx, (_, weeks) ->
+            if (idx > 0 && !older) return@forEachIndexed
+            val bought = weeks.sumOf { it.bought }
+            val budget = weeks.sumOf { it.budget }
+            val progress = if (budget > 0) bought / budget else 0.0
+            if (idx > 0) { Spacer(Modifier.height(14.dp)); Divider(); Spacer(Modifier.height(14.dp)) }
 
-        val shown = if (all) j.weeks else j.weeks.take(4)
-        shown.forEachIndexed { i, w -> weekRow(w, current = i == 0 && j.weeks.first() == w) }
-        if (j.weeks.size > 4) TextButton(onClick = { all = !all }) { Text(if (all) "Moins ▲" else "Toutes les semaines ▼", color = Xp.Cyan) }
+            // En-tête du mois : acheté / budget, avec une barre.
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(monthName(weeks.first()), style = MaterialTheme.typography.titleMedium, color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                Text("${Money.eur(bought, 0)} / ${Money.eur(budget, 0)}", style = MaterialTheme.typography.titleMedium, color = Color.White)
+            }
+            Spacer(Modifier.height(8.dp))
+            GradientBar(progress, listOf(Vivid.Violet, Vivid.Pink, Vivid.Sun))
+            Spacer(Modifier.height(4.dp))
+            Muted(
+                when {
+                    progress >= 0.98 -> "Mois bouclé 🎉 Budget investi en entier."
+                    weeks.any { it.start == currentMonday } -> "Encore ${Money.eur((budget - bought).coerceAtLeast(0.0), 0)} à investir ce mois-ci."
+                    else -> "${Money.eur((budget - bought).coerceAtLeast(0.0), 0)} non investis ce mois-là."
+                },
+            )
+            Spacer(Modifier.height(10.dp))
+            // Une ligne par semaine, du lundi le plus récent au plus ancien.
+            weeks.sortedByDescending { it.start }.forEach { w -> weekRow(w, w.start == currentMonday) }
+        }
+        if (months.size > 1) TextButton(onClick = { older = !older }) { Text(if (older) "Masquer les mois précédents ▲" else "Voir les mois précédents ▼", color = Xp.Cyan) }
 
-        // Frais.
+        // Frais réels lus chez Coinbase.
         Spacer(Modifier.height(8.dp))
         Row(
             Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
-                .background(Brush.horizontalGradient(listOf(Vivid.Pink.copy(alpha = 0.18f), Vivid.Violet.copy(alpha = 0.18f))))
+                .background(Brush.horizontalGradient(listOf(Vivid.Sky.copy(alpha = 0.16f), Vivid.Violet.copy(alpha = 0.16f))))
                 .padding(14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("💸", style = MaterialTheme.typography.titleLarge)
+            Text("🧾", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
-                Text("Frais payés : ${Money.eur(j.totalFees, 2)} (${Money.pct(j.feePct)})", style = MaterialTheme.typography.titleSmall, color = Color.White)
-                if (j.limitSaving >= 1) Muted("Avec des ordres limites sur Coinbase Advanced, tu aurais pu garder ≈ ${Money.eur(j.limitSaving, 0)}. C'est le gain le plus sûr qui existe.")
-                else Muted("Bien joué : tes frais sont déjà bas. Continue avec les ordres limites.")
+                Text("Frais réels : ${Money.eur(j.totalFees, 2)} au total", style = MaterialTheme.typography.titleSmall, color = Color.White)
+                Muted("Sur ${Money.eur(j.totalBought, 0)} achetés en ${j.buyCount} ordre(s) : ${Money.pct(j.feePct)}, soit ≈ ${Money.eur(j.feePerOrder, 2)} par ordre. Chiffres lus chez Coinbase.")
             }
         }
     }
@@ -114,23 +122,25 @@ fun journalCard(a: Analysis) {
 
 @Composable
 private fun weekRow(w: DcaJournal.Week, current: Boolean) {
-    val c = when { w.done -> Feu.Vert; w.partial -> Feu.Orange; current -> Vivid.Sky; else -> Feu.Rouge }
+    val c = when { w.done -> Feu.Vert; current -> Vivid.Sky; w.partial -> Feu.Orange; else -> Feu.Rouge }
     val status = when {
-        w.done -> "✅ Faite"
-        w.partial -> "🟠 Partielle"
-        current -> "⏳ En cours"
-        else -> "❌ Manquée"
+        w.done -> "✅"
+        current -> "⏳"
+        w.partial -> "🟠"
+        else -> "❌"
     }
-    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(10.dp).clip(CircleShape).background(c))
-        Spacer(Modifier.width(10.dp))
-        Column(Modifier.weight(1f)) {
-            Text("Semaine du ${dayFmt.format(Date(w.start))}", style = MaterialTheme.typography.bodyMedium, color = Xp.Ice)
-            if (w.bySymbol.isNotEmpty()) Muted(w.bySymbol.entries.sortedByDescending { it.value }.joinToString(" · ") { "${it.key} ${Money.eur(it.value, 0)}" })
+    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(if (current) "Cette semaine" else "Sem. du ${dayFmt.format(Date(w.start))}", style = MaterialTheme.typography.bodyMedium, color = Xp.Ice, modifier = Modifier.width(118.dp))
+            // Barre de la semaine : remplie selon le budget.
+            Box(Modifier.weight(1f).height(10.dp).clip(RoundedCornerShape(5.dp)).background(Color.White.copy(alpha = 0.08f))) {
+                val p = if (w.budget > 0) (w.bought / w.budget).toFloat().coerceIn(0f, 1f) else 0f
+                if (p > 0.01f) Box(Modifier.fillMaxWidth(p).fillMaxHeight().clip(RoundedCornerShape(5.dp)).background(c))
+            }
+            Spacer(Modifier.width(10.dp))
+            Text("${Money.eur(w.bought, 0)} $status", style = MaterialTheme.typography.labelLarge, color = Color.White)
         }
-        Column(horizontalAlignment = Alignment.End) {
-            Text("${Money.eur(w.bought, 0)} / ${Money.eur(w.budget, 0)}", style = MaterialTheme.typography.labelLarge, color = Color.White)
-            Text(status, style = MaterialTheme.typography.labelMedium, color = c)
-        }
+        if (w.bySymbol.isNotEmpty())
+            Muted(w.bySymbol.entries.sortedByDescending { it.value }.joinToString(" · ") { "${it.key} ${Money.eur(it.value, 0)}" }, Modifier.padding(start = 118.dp))
     }
 }

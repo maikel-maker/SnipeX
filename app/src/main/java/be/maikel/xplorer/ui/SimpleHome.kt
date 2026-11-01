@@ -148,16 +148,22 @@ fun LazyListScope.simpleHome(
                 .border(1.dp, Brush.linearGradient(Vivid.Rainbow), shape)
                 .padding(22.dp),
         ) {
-            Text("📅  Cette semaine · ${Money.eur(a.plan.budget, 0)}", style = MaterialTheme.typography.titleMedium, color = Xp.Gold)
-            val mondays = be.maikel.xplorer.core.mondaysInMonth(System.currentTimeMillis())
-            Muted("${Money.eur(a.snap.settings.monthlyBudget, 0)} ce mois-ci : $mondays achats de ${Money.eur(a.plan.budget, 0)}", small = false)
+            Text("📅  Cette semaine · ${Money.eur(a.weekBudget, 0)}", style = MaterialTheme.typography.titleMedium, color = Xp.Gold)
+            val mondays = be.maikel.xplorer.core.mondaysInMonth(be.maikel.xplorer.domain.DcaJournal.weekStart(System.currentTimeMillis()) + 43_200_000L)
+            Muted("${Money.eur(a.snap.settings.monthlyBudget, 0)} par mois ÷ $mondays lundis", small = false)
+            if (a.weekBought >= 1) {
+                Spacer(Modifier.height(8.dp))
+                GradientBar(a.weekBought / a.weekBudget.coerceAtLeast(1.0), listOf(Vivid.Bulls.copy(alpha = 0.7f), Vivid.Bulls))
+                Spacer(Modifier.height(4.dp))
+                Text("Déjà acheté ${Money.eur(a.weekBought, 0)} · reste ${Money.eur((a.weekBudget - a.weekBought).coerceAtLeast(0.0), 0)}", style = MaterialTheme.typography.labelLarge, color = Vivid.Bulls)
+            }
             Spacer(Modifier.height(10.dp))
             if (buys.isEmpty()) {
-                Text("Rien à acheter.", style = MaterialTheme.typography.titleLarge, color = Xp.Ice)
+                Text(if (a.weekBought >= 1) "Semaine bouclée ✅" else "Rien à acheter.", style = MaterialTheme.typography.titleLarge, color = Xp.Ice)
                 Spacer(Modifier.height(4.dp))
                 Text(a.plan.headline, style = MaterialTheme.typography.bodyLarge, color = Xp.Ice)
             } else {
-                Text("Achète :", style = MaterialTheme.typography.bodyLarge, color = Xp.Slate)
+                Text(if (a.weekBought >= 1) "Il te reste à acheter :" else "Achète :", style = MaterialTheme.typography.bodyLarge, color = Xp.Slate)
                 buys.forEach { b ->
                     val d = a.arena[b.symbol]
                     Row(
@@ -190,7 +196,7 @@ fun LazyListScope.simpleHome(
                         Text("  ›", style = MaterialTheme.typography.titleLarge, color = Xp.Slate)
                     }
                     // Mode achat : prix limite et quantité à taper sur Coinbase Advanced (touche pour copier).
-                    if (buyMode) be.maikel.xplorer.domain.LimitOrder.suggest(b.eur, a.snap.prices[b.symbol] ?: Double.NaN)?.let { sg ->
+                    if (buyMode) be.maikel.xplorer.domain.LimitOrder.suggest(b.eur, a.snap.prices[b.symbol] ?: Double.NaN, a.feeRate)?.let { sg ->
                         Row(Modifier.fillMaxWidth().padding(start = 44.dp, bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Column(
                                 Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(Color.White.copy(alpha = 0.08f))
@@ -219,10 +225,10 @@ fun LazyListScope.simpleHome(
                     Text("🛒", style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(if (buyMode) "Mode achat activé" else "Mode achat : ordres limites", style = MaterialTheme.typography.titleSmall, color = Color.White)
+                        Text(if (buyMode) "Mode achat activé" else "Mode achat : prêt à copier", style = MaterialTheme.typography.titleSmall, color = Color.White)
                         Muted(
-                            if (buyMode) "Sur Coinbase Advanced : Acheter › Limite › colle le prix et la quantité. Frais ≈ 0,6 % au lieu de ≈ 1,2 %, soit ≈ ${Money.eur(buys.sumOf { it.eur } * (be.maikel.xplorer.domain.LimitOrder.FEE_MARKET - be.maikel.xplorer.domain.LimitOrder.FEE_LIMIT), 2)} gardés cette semaine."
-                            else "Affiche le prix et la quantité à copier pour payer moins de frais.",
+                            if (buyMode) "Sur Coinbase Advanced : Acheter › Limite › colle le prix et la quantité. Frais estimés d'après tes vrais ordres : ≈ ${Money.eur(buys.sumOf { it.eur } * a.feeRate, 2)} pour la semaine."
+                            else "Prix et quantité prêts à copier pour chaque crypto.",
                         )
                     }
                 }

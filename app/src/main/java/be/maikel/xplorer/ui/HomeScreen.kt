@@ -147,9 +147,6 @@ fun LazyListScope.overviewScreen(a: Analysis?, hasKey: Boolean, onAsset: (String
             }
         }
     }
-    if (a.issues.isNotEmpty()) item {
-        SectionTitle("Qualité des données")
-        Glass { a.issues.forEach { Bullet(it, Xp.Amber) } }
-    }
+    item { dataQualityCard(a.issues) }
     item { Spacer(Modifier.height(8.dp)); Muted("SnipeX conseille, il ne passe jamais d'ordre. Aucun signal n'est une garantie de bénéfice.", Modifier.padding(horizontal = 8.dp)) }
 }

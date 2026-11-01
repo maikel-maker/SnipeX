@@ -14,12 +14,12 @@ object DcaJournal {
         val partial get() = !done && bought > 1
     }
 
-    data class Summary(val weeks: List<Week>, val totalBought: Double, val totalFees: Double) {
+    data class Summary(val weeks: List<Week>, val totalBought: Double, val totalFees: Double, val buyCount: Int = 0) {
         val doneWeeks get() = weeks.count { it.done }
         /** Frais en pourcentage des achats. */
         val feePct get() = if (totalBought > 0) totalFees / totalBought else 0.0
-        /** Ce que des ordres limites (≈ 0,6 % au lieu de ≈ 1,2 %) auraient pu économiser, estimation. */
-        val limitSaving get() = (totalFees - totalBought * 0.006).coerceAtLeast(0.0)
+        /** Frais moyens par ordre. */
+        val feePerOrder get() = if (buyCount > 0) totalFees / buyCount else 0.0
     }
 
     /** Lundi 00:00 UTC de la semaine de [ms] (le 1er janvier 1970 était un jeudi). */
@@ -43,6 +43,6 @@ object DcaJournal {
             )
             w += 7 * DAY
         }
-        return Summary(weeks.reversed(), buys.sumOf { it.totalEur }, buys.sumOf { it.feeEur })
+        return Summary(weeks.reversed(), buys.sumOf { it.totalEur }, buys.sumOf { it.feeEur }, buys.size)
     }
 }

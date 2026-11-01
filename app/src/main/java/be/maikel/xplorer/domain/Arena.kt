@@ -176,7 +176,8 @@ object Arena {
     ): Plan {
         val syms = targets.keys.filter { (targets[it] ?: 0.0) > 0 }
         val budget = max(0.0, floor(weekly + 0.5))
-        if (syms.isEmpty() || budget < 1) return Plan(weekly, emptyList(), "Aucune crypto dans ton plan : ajoute des cibles dans les réglages.")
+        if (syms.isEmpty()) return Plan(weekly, emptyList(), "Aucune crypto dans ton plan : ajoute des cibles dans les réglages.")
+        if (budget < MIN_ORDER) return Plan(weekly, emptyList(), "Semaine bouclée : tout le budget est déjà acheté. Rendez-vous lundi.")
         val after = cryptoTotal + budget
         val notes = HashMap<String, String>()
         val need = syms.associateWith { s ->

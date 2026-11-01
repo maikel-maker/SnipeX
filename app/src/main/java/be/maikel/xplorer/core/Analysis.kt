@@ -68,6 +68,11 @@ data class Analysis(
     val btcWeek: Double? = null,
     /** Détail de « J'ai mis » : chaque mouvement d'argent lu chez Coinbase depuis le point de départ. */
     val capitalLines: List<CapitalLine> = emptyList(),
+    /** Budget complet de la semaine et ce qui a déjà été acheté (achats réels Coinbase). */
+    val weekBudget: Double = 0.0,
+    val weekBought: Double = 0.0,
+    /** Frais réels payés sur tes achats (taux moyen, d'après Coinbase). */
+    val feeRate: Double = 0.0,
 )
 
 /** Un mouvement d'argent qui compte dans « J'ai mis ». [eur] positif = apport, négatif = retrait. */
@@ -150,9 +155,16 @@ object Analyzer {
             )
         }
         // SnipeX : l'arène des agents répartit le budget de la semaine, en entier, entre les cryptos du plan.
+        val journal = DcaJournal.compute(ledger.trades, st.startDate ?: (now - 84 * 86_400_000L), now) { w ->
+            weeklyFromMonthly(st.monthlyBudget, w + 43_200_000L)
+        }
         val week = weekIndex(now)
-        // 1 000 € par mois, pas un euro de plus : le mois est divisé par son nombre de lundis (4 → 250 €, 5 → 200 €).
-        val weekly = budget ?: weeklyFromMonthly(st.monthlyBudget, now)
+        // 1 000 € par mois, pas un euro de plus : le mois (celui du lundi de la semaine) est divisé par ses lundis (4 → 250 €, 5 → 200 €).
+        val monday = DcaJournal.weekStart(now)
+        val weekBudget = weeklyFromMonthly(st.monthlyBudget, monday + 43_200_000L)
+        // Ce qui a déjà été acheté cette semaine est retiré : l'app ne te fait jamais dépasser le budget.
+        val weekBought = journal.weeks.firstOrNull { it.start == monday }?.bought ?: 0.0
+        val weekly = budget ?: kotlin.math.max(0.0, weekBudget - weekBought)
         val arena = universe.associateWith { sym -> Arena.debate(sym, s.daily[sym] ?: emptyList(), s.prices[sym] ?: Double.NaN) }
         val arenaPlan = Arena.plan(
             weekly, arena, st.targets, values,
@@ -171,9 +183,6 @@ object Analyzer {
             s.prices, ledger.cryptoEur,
             arenaPlan.lines.associate { it.symbol to it.eur }, arenaPlan.total,
         )
-        val journal = DcaJournal.compute(ledger.trades, st.startDate ?: (now - 84 * 86_400_000L), now) { w ->
-            weeklyFromMonthly(st.monthlyBudget, w + 43_200_000L)
-        }
         val btcWeek = s.daily["BTC"]?.takeIf { it.size > 8 }?.let { d ->
             val nowP = s.prices["BTC"] ?: d.last().close
             val ago = d[d.size - 8].close
@@ -196,7 +205,8 @@ object Analyzer {
 
         return Analysis(s, ledger, history, recs, plan, signals, health(s, ledger, history), capital, capitalManual, gain, gainPct, dayChange to dayPct, issues, sinceStart, history?.startValue, lifetimeGain,
             week, budget == null, cashWarning,
-            arena, arenaPlan, arenaBacktest, milestones, journal, btcWeek, capitalLines)
+            arena, arenaPlan, arenaBacktest, milestones, journal, btcWeek, capitalLines,
+            weekBudget, weekBought, journal.feePct)
     }
 
     private fun health(s: Snapshot, l: LedgerResult, h: PortfolioHistory?): Health {
