@@ -126,4 +126,33 @@ class LedgerTest {
         assertEquals(h.points.last().value - first.value - 500.0, origin.gainEur, 1e-6)
         h.periods.forEach { assertTrue("${it.label} ${it.pct}", it.pct.isNaN() || it.pct > -1.0) }
     }
+
+    @Test fun cardSpendIsMoneyOut() {
+        val ops = listOf(
+            op(0, "fiat_deposit", "EUR", 500.0, 500.0),
+            op(1, "cardspend", "EUR", -40.0, -40.0),
+            op(2, "advanced_trade_fill", "EUR", -300.0, -300.0),
+            op(2, "advanced_trade_fill", "BTC", 0.01, 300.0),
+            op(3, "cardspend", "BTC", -0.002, -60.0),
+        )
+        val r = Ledger.compute(ops, mapOf("BTC" to 0.008, "EUR" to 160.0), mapOf("BTC" to 30000.0), 0.925)
+        assertEquals(400.0, r.capitalNet, 1e-9)          // 500 versés − 40 − 60 dépensés à la carte
+        assertTrue(r.issues.none { it.contains("non reconnu") })
+        assertTrue(r.issues.none { it.contains("une sortie manque") })
+    }
+
+    @Test fun cryptoCashedOutToBankIsASale() {
+        // Retrait direct depuis l'ETH : Coinbase enregistre la sortie d'ETH en « fiat_withdrawal » et le virement en euros.
+        val ops = listOf(
+            op(0, "fiat_deposit", "EUR", 200.0, 200.0),
+            op(1, "advanced_trade_fill", "EUR", -200.0, -200.0),
+            op(1, "advanced_trade_fill", "ETH", 0.07, 200.0),
+            op(5, "fiat_withdrawal", "ETH", -0.02, -55.0),
+            op(5, "fiat_withdrawal", "EUR", -55.0, -55.0),
+        )
+        val r = Ledger.compute(ops, mapOf("ETH" to 0.05), mapOf("ETH" to 2800.0), 0.925)
+        assertTrue(r.issues.toString(), r.issues.none { it.contains("une sortie manque") })
+        assertEquals(145.0, r.capitalNet, 1e-9)          // le retrait n'est compté qu'une fois
+        assertEquals(1, r.trades.count { !it.buy })
+    }
 }

@@ -167,7 +167,9 @@ object Ledger {
                     val f = feeEur(op)
                     val value = abs(op.eur)
                     when {
-                        op.type in TRADE_TYPES -> {
+                        // Retrait direct depuis une crypto vers la banque : Coinbase vend la crypto pour toi.
+                        // C'est une vente (le virement en euros, lui, est compté à part comme retrait).
+                        op.type in TRADE_TYPES || op.type in FIAT_FLOW -> {
                             fees += f; b.fees += f
                             if (q > 0) {
                                 b.qty += q; b.cost += value + f
@@ -205,7 +207,6 @@ object Ledger {
                             if (q > 0) { b.qty += q; b.cost += value } else reduce(b, -q)
                         }
                         op.type in INTERNAL_TYPES -> Unit
-                        op.type in FIAT_FLOW -> Unit
                         else -> {
                             unknownTypes++
                             // Type inconnu : on suit la quantité au prix donné par Coinbase.
