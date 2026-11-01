@@ -34,8 +34,16 @@ object Pipeline {
                 ))
                 val owned = (a.ledger.positions.firstOrNull { it.symbol == sym }?.value ?: 0.0) > 1
                 val relevant = owned || st.targets.containsKey(sym)
-                if (last != null && relevant && (r.action.isBuy || r.action.isSell)) {
-                    messages += Triple("signal", "$sym — ${r.action.label}", "Score ${r.score}/100, confiance ${r.confidence.label}. ${r.pros.firstOrNull() ?: r.zone}")
+                // Notification seulement quand le feu change de couleur : orange → vert (acheter) ou → rouge (prudence).
+                val was = last?.action?.let { runCatching { be.maikel.xplorer.domain.Action.valueOf(it) }.getOrNull() }
+                val plan = a.plan.lines.firstOrNull { it.symbol == sym }?.eur ?: 0.0
+                val name = when (sym) { "BTC" -> "Bitcoin"; "ETH" -> "Ethereum"; "GEOD" -> "Geodnet"; "LINK" -> "Chainlink"; "TAO" -> "Bittensor"; else -> sym }
+                if (was != null && relevant && r.action.isBuy && !was.isBuy) {
+                    messages += Triple("signal", "🟢 $name : bon moment pour acheter",
+                        "Le feu passe au vert." + (if (plan >= 1) " Ton plan de la semaine : ${Money.eur(plan, 0)} de $sym." else " Rien de prévu cette semaine : ta cible est déjà atteinte."))
+                } else if (was != null && relevant && r.action.isSell && !was.isSell) {
+                    messages += Triple("signal", "🔴 $name : prudence",
+                        if (sym == "GEOD") "Le feu passe au rouge. Ta règle GEOD : on ne vend pas avant ×20, on garde." else "Le feu passe au rouge. Pas de panique : ton DCA continue, mais n'en rajoute pas.")
                 }
             }
         }
