@@ -221,15 +221,38 @@ fun LazyListScope.settingsScreen(s: UiState, st: Settings, act: SettingsActions)
         }
     }
     item {
-        SectionTitle("Ce qu'SnipeX a lu chez Coinbase")
+        SectionTitle("Ce que SnipeX a lu chez Coinbase")
         Glass {
             val ops = s.analysis?.snap?.ops ?: emptyList()
             if (ops.isEmpty()) Muted("Rien de lu pour l'instant.")
-            ops.groupBy { it.type to it.cur }.map { (k, v) -> Triple(k, v.size, v.sumOf { o -> if (o.eur.isNaN()) 0.0 else o.eur }) }
-                .sortedByDescending { kotlin.math.abs(it.third) }.take(40).forEach { (k, n, eur) ->
-                    KV("${k.first} · ${k.second} × $n", Money.signedEur(eur, 0), if (eur >= 0) Xp.Gain else Xp.Loss)
+            else {
+                // Résumé en clair, par grande famille d'opérations.
+                fun eurOf(o: be.maikel.xplorer.domain.Op) = if (o.cur in be.maikel.xplorer.domain.Ledger.EURLIKE) o.amount else if (o.eur.isNaN()) 0.0 else o.eur
+                val L = be.maikel.xplorer.domain.Ledger
+                val deposits = ops.filter { it.type == "fiat_deposit" }
+                val withdrawals = ops.filter { it.type == "fiat_withdrawal" }
+                val trades = ops.filter { it.type in L.TRADE_TYPES && !L.isCash(it.cur) }
+                val sends = ops.filter { it.type in L.EXTERNAL_TYPES }
+                val card = ops.filter { it.type in L.CARD_TYPES }
+                val rewards = ops.filter { it.type in L.REWARD_TYPES }
+                Muted("Depuis l'ouverture de ton compte Coinbase :", small = false)
+                Spacer(Modifier.height(6.dp))
+                KV("🏦 Virements reçus de ta banque", Money.eur(deposits.sumOf { eurOf(it) }, 0), Xp.Gain, "${deposits.size} virement(s)")
+                KV("↩️ Retraits vers ta banque", Money.eur(-withdrawals.sumOf { eurOf(it) }, 0), Xp.Ice, "${withdrawals.size} retrait(s)")
+                KV("🛒 Achats et ventes de cryptos", "${trades.size}", Xp.Ice, "ordres exécutés")
+                if (sends.isNotEmpty()) KV("📤 Cryptos envoyées ou reçues", Money.signedEur(sends.sumOf { eurOf(it) }, 0), Xp.Ice, "${sends.size} transfert(s), valeur au jour du transfert")
+                if (card.isNotEmpty()) KV("💳 Dépenses avec la carte Coinbase", Money.eur(-card.sumOf { eurOf(it) }, 0), Xp.Ice, "${card.size} paiement(s), comptés comme de l'argent sorti")
+                if (rewards.isNotEmpty()) KV("🎁 Récompenses", Money.eur(rewards.sumOf { eurOf(it) }, 0), Xp.Gain, "${rewards.size} versement(s)")
+                var raw by remember { mutableStateOf(false) }
+                TextButton(onClick = { raw = !raw }) { Text(if (raw) "Masquer le détail technique ▲" else "Détail technique (pour dépannage) ▼", color = Xp.Cyan) }
+                if (raw) {
+                    ops.groupBy { it.type to it.cur }.map { (k, v) -> Triple(k, v.size, v.sumOf { o -> if (o.eur.isNaN()) 0.0 else o.eur }) }
+                        .sortedByDescending { kotlin.math.abs(it.third) }.take(40).forEach { (k, n, eur) ->
+                            KV("${k.first} · ${k.second} × $n", Money.signedEur(eur, 0), Xp.Slate)
+                        }
+                    Muted("Types d'opérations bruts renvoyés par Coinbase, montants en euros au jour de chaque opération.")
                 }
-            Muted("Montants signés en euros au moment de chaque opération, tels que donnés par Coinbase.")
+            }
         }
     }
     item {

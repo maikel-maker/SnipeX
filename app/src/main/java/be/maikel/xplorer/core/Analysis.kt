@@ -116,7 +116,7 @@ object Analyzer {
             else -> Long.MIN_VALUE
         }
         val flowLines = s.ops.filter { op ->
-            ((op.type in Ledger.FIAT_FLOW && Ledger.isCash(op.cur)) || op.type in Ledger.EXTERNAL_TYPES) && History.dayOf(op.t) >= from
+            ((op.type in Ledger.FIAT_FLOW && Ledger.isCash(op.cur)) || op.type in Ledger.EXTERNAL_TYPES || op.type in Ledger.CARD_TYPES) && History.dayOf(op.t) >= from
         }.sortedByDescending { it.t }.map { op ->
             val e = if (op.cur in Ledger.EURLIKE) op.amount else op.eur
             val label = when (op.type) {
@@ -124,6 +124,7 @@ object Analyzer {
                 "fiat_withdrawal" -> "Retrait vers ta banque"
                 "send" -> if (e < 0) "${op.cur} envoyé hors de Coinbase" else "${op.cur} reçu"
                 "receive" -> "${op.cur} reçu de l'extérieur"
+                in Ledger.CARD_TYPES -> if (e < 0) "Dépense carte Coinbase (${op.cur})" else "Remboursement carte Coinbase"
                 else -> "${op.type} ${op.cur}"
             }
             CapitalLine(op.t, label, e)

@@ -98,6 +98,8 @@ object Ledger {
         "wrap_asset", "unwrap_asset", "derivatives_settlement", "unsupported_asset_recovery",
     )
     val FIAT_FLOW = setOf("fiat_deposit", "fiat_withdrawal")
+    /** Dépenses avec la carte Coinbase : l'argent sort de ton investissement, comme un retrait. */
+    val CARD_TYPES = setOf("cardspend", "card_spend", "card_buy_back")
 
     fun isCash(cur: String) = cur in CASH
 
@@ -149,6 +151,10 @@ object Ledger {
                     val e = if (op.eur != 0.0) op.eur else op.amount * usdEur
                     if (e > 0) capIn += e else capOut += -e
                 }
+                op.type in CARD_TYPES && isCash(op.cur) -> {
+                    val e = if (op.cur in EURLIKE) op.amount else if (op.eur != 0.0) op.eur else op.amount * usdEur
+                    if (e > 0) capIn += e else capOut += -e
+                }
                 isCash(op.cur) -> {
                     // Mouvements de cash liés aux achats/ventes : le côté crypto porte le calcul.
                     if (op.type !in TRADE_TYPES && op.type !in INTERNAL_TYPES && op.type !in REWARD_TYPES &&
@@ -192,6 +198,11 @@ object Ledger {
                             // Transfert hors de Coinbase : ce n'est pas une performance.
                             extNet += op.eur
                             if (q > 0) { b.qty += q; b.cost += value; b.extIn += q } else reduce(b, -q)
+                        }
+                        op.type in CARD_TYPES -> {
+                            // Crypto dépensée avec la carte : elle sort, à sa valeur du jour.
+                            if (op.eur < 0) capOut += -op.eur else capIn += op.eur
+                            if (q > 0) { b.qty += q; b.cost += value } else reduce(b, -q)
                         }
                         op.type in INTERNAL_TYPES -> Unit
                         op.type in FIAT_FLOW -> Unit
@@ -311,7 +322,7 @@ object History {
         val byDay = sorted.groupBy { dayOf(it.t) }
         val flowsByDay = HashMap<Long, Double>()
         for (op in sorted) {
-            val isFlow = (op.type in Ledger.FIAT_FLOW && Ledger.isCash(op.cur)) || op.type in Ledger.EXTERNAL_TYPES
+            val isFlow = (op.type in Ledger.FIAT_FLOW && Ledger.isCash(op.cur)) || op.type in Ledger.EXTERNAL_TYPES || op.type in Ledger.CARD_TYPES
             if (isFlow) {
                 val e = if (op.cur in Ledger.EURLIKE) op.amount else op.eur
                 flowsByDay[dayOf(op.t)] = (flowsByDay[dayOf(op.t)] ?: 0.0) + e
