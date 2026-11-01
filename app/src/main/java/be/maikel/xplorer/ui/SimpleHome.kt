@@ -60,6 +60,7 @@ fun LazyListScope.simpleHome(
     onDetails: () -> Unit,
     onSettings: () -> Unit,
     onDone: (List<Pair<String, Double>>) -> Unit,
+    onCapitalMode: (String) -> Unit = {},
 ) {
     item {
         Text(hello(), style = MaterialTheme.typography.titleLarge, color = Xp.Ice, modifier = Modifier.padding(start = 4.dp, top = 4.dp, bottom = 12.dp))
@@ -88,6 +89,14 @@ fun LazyListScope.simpleHome(
                 Spacer(Modifier.height(8.dp))
                 Text(if (detail) "Masquer le détail ▲" else "D'où vient « J'ai mis » ? ▼", style = MaterialTheme.typography.labelLarge, color = Xp.Cyan)
                 if (detail) {
+                    Spacer(Modifier.height(8.dp))
+                    val mode = a.snap.settings.capitalMode
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Pill("Seulement mes virements", mode == be.maikel.xplorer.data.Settings.CAPITAL_TRANSFERS, { onCapitalMode(be.maikel.xplorer.data.Settings.CAPITAL_TRANSFERS) })
+                        Pill("Avec la valeur de départ", mode == be.maikel.xplorer.data.Settings.CAPITAL_START_VALUE, { onCapitalMode(be.maikel.xplorer.data.Settings.CAPITAL_START_VALUE) })
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Muted(if (mode == be.maikel.xplorer.data.Settings.CAPITAL_TRANSFERS) "Uniquement l'argent qui est vraiment entré ou sorti depuis le départ." else "Ce que valaient tes cryptos au départ, plus l'argent entré ou sorti ensuite.")
                     Spacer(Modifier.height(8.dp))
                     val fmt = java.text.SimpleDateFormat("d MMM", java.util.Locale.FRANCE)
                     a.capitalLines.forEach { c ->
@@ -124,6 +133,13 @@ fun LazyListScope.simpleHome(
     val held = l.positions.associate { it.symbol to it.value }
     val buys = a.plan.lines.filter { it.eur > 0 }.sortedByDescending { held[it.symbol] ?: 0.0 }
     item {
+        var buyMode by rememberSaveable { mutableStateOf(false) }
+        val clip = androidx.compose.ui.platform.LocalClipboardManager.current
+        val ctx = androidx.compose.ui.platform.LocalContext.current
+        fun copy(label: String, v: String) {
+            clip.setText(androidx.compose.ui.text.AnnotatedString(v))
+            android.widget.Toast.makeText(ctx, "$label copié : $v", android.widget.Toast.LENGTH_SHORT).show()
+        }
         Spacer(Modifier.height(14.dp))
         val shape = RoundedCornerShape(22.dp)
         Column(
@@ -173,10 +189,62 @@ fun LazyListScope.simpleHome(
                         Text(Money.eur(b.eur, 0), style = MaterialTheme.typography.titleLarge, color = Xp.Ice)
                         Text("  ›", style = MaterialTheme.typography.titleLarge, color = Xp.Slate)
                     }
+                    // Mode achat : prix limite et quantité à taper sur Coinbase Advanced (touche pour copier).
+                    if (buyMode) be.maikel.xplorer.domain.LimitOrder.suggest(b.eur, a.snap.prices[b.symbol] ?: Double.NaN)?.let { sg ->
+                        Row(Modifier.fillMaxWidth().padding(start = 44.dp, bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Column(
+                                Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(Color.White.copy(alpha = 0.08f))
+                                    .clickable { copy("Prix limite", sg.priceText) }.padding(8.dp),
+                            ) {
+                                Muted("Prix limite 📋")
+                                Text("${sg.priceText} €", style = MaterialTheme.typography.titleSmall, color = Color.White)
+                            }
+                            Column(
+                                Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(Color.White.copy(alpha = 0.08f))
+                                    .clickable { copy("Quantité", sg.qtyText) }.padding(8.dp),
+                            ) {
+                                Muted("Quantité 📋")
+                                Text("${sg.qtyText} ${b.symbol}", style = MaterialTheme.typography.titleSmall, color = Color.White, maxLines = 1)
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
+                        .background(if (buyMode) Vivid.Sky.copy(alpha = 0.18f) else Color.White.copy(alpha = 0.06f))
+                        .clickable { buyMode = !buyMode }.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("🛒", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(if (buyMode) "Mode achat activé" else "Mode achat : ordres limites", style = MaterialTheme.typography.titleSmall, color = Color.White)
+                        Muted(
+                            if (buyMode) "Sur Coinbase Advanced : Acheter › Limite › colle le prix et la quantité. Frais ≈ 0,6 % au lieu de ≈ 1,2 %, soit ≈ ${Money.eur(buys.sumOf { it.eur } * (be.maikel.xplorer.domain.LimitOrder.FEE_MARKET - be.maikel.xplorer.domain.LimitOrder.FEE_LIMIT), 2)} gardés cette semaine."
+                            else "Affiche le prix et la quantité à copier pour payer moins de frais.",
+                        )
+                    }
                 }
                 Spacer(Modifier.height(6.dp))
                 Text("Les montants te ramènent pile à ta répartition. Touche une crypto pour son analyse.", style = MaterialTheme.typography.bodyMedium, color = Xp.Slate)
-                a.plan.cashWarning?.let { Spacer(Modifier.height(8.dp)); Banner(it) }
+                // Rappel doux : pas d'alarme, juste ce qu'il faut virer et une astuce.
+                if (hasKey && l.cashEur + 0.5 < a.plan.lines.sumOf { it.eur }) {
+                    val need = a.plan.lines.sumOf { it.eur } - l.cashEur
+                    Spacer(Modifier.height(10.dp))
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Vivid.Sky.copy(alpha = 0.12f))
+                            .border(1.dp, Vivid.Sky.copy(alpha = 0.35f), RoundedCornerShape(14.dp)).padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("🏦", style = MaterialTheme.typography.titleMedium)
+                        Spacer(Modifier.width(10.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text("Pense à virer ${Money.eur(need, 0)} sur Coinbase", style = MaterialTheme.typography.titleSmall, color = Color.White)
+                            Muted("Astuce : un virement permanent chaque lundi depuis ta banque, et tu n'y penses plus.")
+                        }
+                    }
+                }
                 Spacer(Modifier.height(14.dp))
                 Button(
                     onClick = { onDone(buys.map { it.symbol to it.eur }) },

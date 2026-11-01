@@ -1,7 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Fond SnipeX : dégradé violet → rose → pêche. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp" android:height="108dp"
     android:viewportWidth="108" android:viewportHeight="108">
-    <path android:fillColor="#050912" android:pathData="M0,0h108v108h-108z" />
-    <path android:fillColor="#0B1A33" android:pathData="M54,54m-48,0a48,48 0,1 1,96 0a48,48 0,1 1,-96 0" />
+    <path android:pathData="M0,0h108v108h-108z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear"
+                android:startX="0" android:startY="0" android:endX="108" android:endY="108">
+                <item android:offset="0" android:color="#FF2A1460" />
+                <item android:offset="0.55" android:color="#FFB8487A" />
+                <item android:offset="1" android:color="#FFFF9E6B" />
+            </gradient>
+        </aapt:attr>
+    </path>
 </vector>

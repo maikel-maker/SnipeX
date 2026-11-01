@@ -28,5 +28,18 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Widget d'écran d'accueil : le plan DCA de la semaine. -->
+        <receiver
+            android:name=".work.PlanWidget"
+            android:exported="false"
+            android:label="SnipeX · Ma semaine">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_plan_info" />
+        </receiver>
     </application>
 </manifest>

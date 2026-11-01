@@ -31,7 +31,6 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -71,7 +70,6 @@ import be.maikel.xplorer.ui.overviewScreen
 import be.maikel.xplorer.ui.healthScreen
 import be.maikel.xplorer.ui.Pill
 import be.maikel.xplorer.ui.marketsScreen
-import be.maikel.xplorer.ui.portfolioScreen
 import be.maikel.xplorer.ui.settingsScreen
 import kotlinx.coroutines.launch
 
@@ -92,14 +90,13 @@ class MainActivity : ComponentActivity() {
 
 private data class Tab(val label: String, val icon: ImageVector)
 
-// 3 onglets seulement. Les réglages s'ouvrent avec la roue dentée en haut à droite.
+// 2 onglets : tout le suivi DCA est sur l'accueil. Les réglages s'ouvrent avec la roue dentée en haut à droite.
 private val tabs = listOf(
     Tab("Accueil", Icons.Default.Home),
-    Tab("Mes cryptos", Icons.Default.Star),
     Tab("Détails", Icons.Default.List),
 )
-private const val SETTINGS = 3
-private val detailTabs = listOf("Ma semaine", "Résumé", "Marchés", "Santé")
+private const val SETTINGS = 2
+private val detailTabs = listOf("Résumé", "Marchés", "Santé", "Simuler un budget")
 
 @Composable
 private fun App(vm: AppViewModel) {
@@ -157,24 +154,23 @@ private fun App(vm: AppViewModel) {
             s.error?.let { Box(Modifier.padding(horizontal = 16.dp)) { Banner(it) } }
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp)) {
                 when (tab) {
-                    0 -> simpleHome(s.analysis, s.hasKey, { asset = it }, { tab = 2; detail = 0 }, { tab = SETTINGS }, { vm.addIntents(it) })
-                    1 -> portfolioScreen(s.analysis) { asset = it }
-                    2 -> {
+                    0 -> simpleHome(s.analysis, s.hasKey, { asset = it }, { tab = 1; detail = 0 }, { tab = SETTINGS }, { vm.addIntents(it) }) { m -> vm.updateSettings { it.copy(capitalMode = m) } }
+                    1 -> {
                         item {
                             Row(Modifier.padding(bottom = 6.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 detailTabs.forEachIndexed { i, t -> Pill(t, detail == i, { detail = i }) }
                             }
                         }
                         when (detail) {
-                            0 -> decisionsScreen(s, { vm.setBudget(it) }, { asset = it })
-                            1 -> overviewScreen(s.analysis, s.hasKey, { asset = it }) { t -> if (t == 4) tab = SETTINGS else { tab = 2; detail = 0 } }
-                            2 -> marketsScreen(s.analysis) { asset = it }
-                            else -> healthScreen(s.analysis)
+                            0 -> overviewScreen(s.analysis, s.hasKey, { asset = it }) { t -> if (t == 4) tab = SETTINGS else { tab = 0 } }
+                            1 -> marketsScreen(s.analysis) { asset = it }
+                            2 -> healthScreen(s.analysis)
+                            else -> decisionsScreen(s, { vm.setBudget(it) }, { asset = it })
                         }
                     }
                     else -> settingsScreen(s, vm.settings, SettingsActions(
                         connect = vm::connect, disconnect = vm::disconnect, update = vm::updateSettings,
-                        setCapital = vm::setCapital, export = { exporter.launch("xplorer-export.json") }, wipe = vm::wipeEverything,
+                        setCapital = vm::setCapital, export = { exporter.launch("snipex-export.json") }, wipe = vm::wipeEverything,
                     ))
                 }
             }

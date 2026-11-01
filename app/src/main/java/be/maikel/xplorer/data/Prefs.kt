@@ -40,8 +40,15 @@ data class Settings(
     val dcaSchema: Int = 0,
     /** Dernier mois (année × 12 + mois) pour lequel le bilan mensuel a été envoyé. */
     val recapMonth: Int? = null,
+    /** Calcul de « J'ai mis » : seulement l'argent versé (défaut) ou valeur au départ + mouvements. */
+    val capitalMode: String = CAPITAL_TRANSFERS,
 ) {
     fun maxFor(sym: String) = maxWeight[sym] ?: maxWeightDefault
+
+    companion object {
+        const val CAPITAL_TRANSFERS = "virements"
+        const val CAPITAL_START_VALUE = "valeur"
+    }
 }
 
 class Prefs(context: Context) {

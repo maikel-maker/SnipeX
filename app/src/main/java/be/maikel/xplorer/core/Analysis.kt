@@ -1,5 +1,6 @@
 package be.maikel.xplorer.core
 
+import be.maikel.xplorer.data.Settings
 import be.maikel.xplorer.data.Snapshot
 import be.maikel.xplorer.domain.Arena
 import be.maikel.xplorer.domain.AssetContext
@@ -17,9 +18,6 @@ import be.maikel.xplorer.domain.Radar
 import be.maikel.xplorer.domain.Recommendation
 import be.maikel.xplorer.domain.Rules
 import be.maikel.xplorer.domain.Signal
-import be.maikel.xplorer.domain.SmartDca
-import be.maikel.xplorer.domain.SwingAlgo
-import be.maikel.xplorer.domain.Achievements
 import be.maikel.xplorer.domain.PlanLine
 import be.maikel.xplorer.domain.Action
 import be.maikel.xplorer.domain.WeeklyPlan
@@ -54,17 +52,10 @@ data class Analysis(
     val sinceStart: Boolean = false,
     val startValue: Double? = null,
     val lifetimeGain: Double = 0.0,
-    /** DCA intelligent (moteur principal du plan de la semaine). */
-    val dca: SmartDca.Plan? = null,
-    val mayer: Map<String, Double?> = emptyMap(),
-    val backtests: List<SmartDca.Backtest> = emptyList(),
-    /** Semaine du plan et indication si le budget est celui des réglages (seul ce cas fait évoluer la réserve). */
+    /** Semaine du plan et indication si le budget est celui des réglages. */
     val dcaWeek: Long = 0,
     val dcaDefaultBudget: Boolean = true,
     val dcaCashWarning: String? = null,
-    val achievements: Achievements.Summary? = null,
-    /** Algorithme « marché mixte » simulé sur l'historique de chaque crypto. */
-    val swing: Map<String, SwingAlgo.Result> = emptyMap(),
     /** SnipeX : débat des agents par crypto, répartition de la semaine et test sur le passé. */
     val arena: Map<String, Arena.Debate> = emptyMap(),
     val arenaPlan: Arena.Plan? = null,
@@ -97,16 +88,9 @@ fun weeklyFromMonthly(monthly: Double, ms: Long): Double = kotlin.math.floor(mon
 /** Semaines commençant le lundi (le 1er janvier 1970 était un jeudi). */
 fun weekIndex(ms: Long): Long = Math.floorDiv(ms / 86_400_000L + 3, 7L)
 
-/** Réserve « creux » valable pour la semaine [week], en appliquant le changement de semaine s'il n'est pas encore enregistré. */
-fun reserveFor(st: be.maikel.xplorer.data.Settings, week: Long): Double = when (st.dcaWeek) {
-    null -> 0.0
-    week -> max(0.0, st.dcaReserveStart)
-    else -> max(0.0, st.dcaReserveStart + st.dcaPendingDelta)
-}
-
 object Analyzer {
 
-    fun run(s: Snapshot, h4: Map<String, List<Candle>>, budget: Double? = null, now: Long = System.currentTimeMillis(), declaredWeeks: Int = 0): Analysis {
+    fun run(s: Snapshot, h4: Map<String, List<Candle>>, budget: Double? = null, now: Long = System.currentTimeMillis(), @Suppress("UNUSED_PARAMETER") declaredWeeks: Int = 0): Analysis {
         val st = s.settings
         val ledger = Ledger.compute(s.ops, s.balances, s.prices, s.usdEurNow)
         val dailyClose = s.daily.mapValues { (_, c) -> c.associate { History.dayOf(it.t) to it.close } }
@@ -115,11 +99,41 @@ object Analyzer {
         } catch (e: Exception) { null }
 
         val capitalManual = st.capitalOverride != null
-        // Avec un point de départ : capital = valeur du portefeuille ce jour-là + virements (et transferts) depuis.
         val sinceStart = st.startDate != null && history?.startValue != null
-        val autoCapital = if (sinceStart) history!!.points.last().capital else ledger.capitalNet
+        val onlyTransfers = st.capitalMode == Settings.CAPITAL_TRANSFERS
+        // Mouvements d'argent lus chez Coinbase : virements, retraits, cryptos envoyées ou reçues.
+        val startDay = st.startDate?.let { History.dayOf(it) }
+        // Mode « mes virements » : dès le jour de départ inclus. Mode « valeur de départ » : le lendemain (le jour même est dans la valeur).
+        val from = when {
+            startDay == null -> Long.MIN_VALUE
+            onlyTransfers -> startDay
+            sinceStart -> startDay + 1
+            else -> Long.MIN_VALUE
+        }
+        val flowLines = s.ops.filter { op ->
+            ((op.type in Ledger.FIAT_FLOW && Ledger.isCash(op.cur)) || op.type in Ledger.EXTERNAL_TYPES) && History.dayOf(op.t) >= from
+        }.sortedByDescending { it.t }.map { op ->
+            val e = if (op.cur in Ledger.EURLIKE) op.amount else op.eur
+            val label = when (op.type) {
+                "fiat_deposit" -> "Virement vers Coinbase"
+                "fiat_withdrawal" -> "Retrait vers ta banque"
+                "send" -> if (e < 0) "${op.cur} envoyé hors de Coinbase" else "${op.cur} reçu"
+                "receive" -> "${op.cur} reçu de l'extérieur"
+                else -> "${op.type} ${op.cur}"
+            }
+            CapitalLine(op.t, label, e)
+        }
+        val capitalLines = if (!onlyTransfers && sinceStart && st.startDate != null)
+            flowLines + CapitalLine(st.startDate, "Valeur de tes cryptos au départ", history!!.startValue ?: 0.0)
+        else flowLines
+        // Valeur de départ + mouvements (mode historique), ou seulement l'argent réellement versé (mode par défaut).
+        val autoCapital = when {
+            onlyTransfers -> flowLines.sumOf { it.eur }
+            sinceStart -> history!!.points.last().capital
+            else -> ledger.capitalNet
+        }
         val capital = st.capitalOverride ?: autoCapital
-        val gain = ledger.totalEur - capital - (if (sinceStart || capitalManual) 0.0 else ledger.externalNetEur)
+        val gain = ledger.totalEur - capital - (if (sinceStart || capitalManual || onlyTransfers) 0.0 else ledger.externalNetEur)
         val lifetimeGain = ledger.totalEur - ledger.capitalNet - ledger.externalNetEur
         val gainPct = if (capital > 0) gain / capital else Double.NaN
 
@@ -139,7 +153,6 @@ object Analyzer {
         val week = weekIndex(now)
         // 1 000 € par mois, pas un euro de plus : le mois est divisé par son nombre de lundis (4 → 250 €, 5 → 200 €).
         val weekly = budget ?: weeklyFromMonthly(st.monthlyBudget, now)
-        val mayer = universe.associateWith { sym -> SmartDca.mayer(s.daily[sym] ?: emptyList(), s.prices[sym] ?: Double.NaN, now) }
         val arena = universe.associateWith { sym -> Arena.debate(sym, s.daily[sym] ?: emptyList(), s.prices[sym] ?: Double.NaN) }
         val arenaPlan = Arena.plan(
             weekly, arena, st.targets, values,
@@ -158,24 +171,6 @@ object Analyzer {
             s.prices, ledger.cryptoEur,
             arenaPlan.lines.associate { it.symbol to it.eur }, arenaPlan.total,
         )
-        val capitalLines = buildList {
-            val start = st.startDate
-            if (sinceStart && start != null && history != null) add(CapitalLine(start, "Valeur de tes cryptos au départ", history.startValue ?: 0.0))
-            val from = if (sinceStart && start != null) History.dayOf(start) + 1 else Long.MIN_VALUE
-            s.ops.filter { op ->
-                ((op.type in Ledger.FIAT_FLOW && Ledger.isCash(op.cur)) || op.type in Ledger.EXTERNAL_TYPES) && History.dayOf(op.t) >= from
-            }.sortedByDescending { it.t }.forEach { op ->
-                val e = if (op.cur in Ledger.EURLIKE) op.amount else op.eur
-                val label = when (op.type) {
-                    "fiat_deposit" -> "Virement vers Coinbase"
-                    "fiat_withdrawal" -> "Retrait vers ta banque"
-                    "send" -> if (e < 0) "${op.cur} envoyé hors de Coinbase" else "${op.cur} reçu"
-                    "receive" -> "${op.cur} reçu de l'extérieur"
-                    else -> "${op.type} ${op.cur}"
-                }
-                add(CapitalLine(op.t, label, e))
-            }
-        }
         val journal = DcaJournal.compute(ledger.trades, st.startDate ?: (now - 84 * 86_400_000L), now) { w ->
             weeklyFromMonthly(st.monthlyBudget, w + 43_200_000L)
         }
@@ -185,18 +180,6 @@ object Analyzer {
             if (ago > 0 && nowP > 0) nowP / ago - 1 else null
         }
         val arenaBacktest = try { Arena.backtest(s.daily, st.targets, st.weeklyBudget) } catch (e: Exception) { null }
-        // Achats « malins » : faits quand le prix était sous sa moyenne 200 jours ce jour-là.
-        val smartBuys = ledger.trades.count { tr ->
-            if (!tr.buy) return@count false
-            val d = s.daily[tr.symbol] ?: return@count false
-            val i = d.indexOfLast { it.t <= tr.t }
-            i >= 199 && tr.unitEur > 0 && tr.unitEur < d.subList(i - 199, i + 1).sumOf { it.close } / 200
-        }
-        val beats = history?.points?.lastOrNull()?.let { p -> if (p.benchmark.isNaN()) null else p.value > p.benchmark }
-        val achievements = Achievements.compute(
-            ledger.trades.filter { st.startDate == null || it.t >= st.startDate }, declaredWeeks, capital,
-            history?.maxDrawdown, beats, weights, st.targets, smartBuys, now,
-        )
         val signals = universe.flatMap { sym ->
             Radar.scan(sym, s.daily[sym] ?: emptyList(), s.prices[sym] ?: Double.NaN, weights[sym] ?: 0.0, st.maxFor(sym), s.volume24Eur[sym])
         }
@@ -212,7 +195,7 @@ object Analyzer {
         if (ledger.externalNetEur != 0.0) issues += "Transferts de cryptos depuis ou vers l'extérieur : ${Money.signedEur(ledger.externalNetEur, 0)} (valeur à la date du transfert), exclus des gains."
 
         return Analysis(s, ledger, history, recs, plan, signals, health(s, ledger, history), capital, capitalManual, gain, gainPct, dayChange to dayPct, issues, sinceStart, history?.startValue, lifetimeGain,
-            null, mayer, emptyList(), week, budget == null, cashWarning, achievements, emptyMap(),
+            week, budget == null, cashWarning,
             arena, arenaPlan, arenaBacktest, milestones, journal, btcWeek, capitalLines)
     }
 

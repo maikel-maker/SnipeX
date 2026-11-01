@@ -2,4 +2,7 @@
 <resources>
     <color name="abyss">#FF050912</color>
     <color name="cyan">#FF3FD8F2</color>
+    <color name="splash_icon_bg">#FFB8487A</color>
+    <color name="widget_text">#FFFFFFFF</color>
+    <color name="widget_muted">#CCFFFFFF</color>
 </resources>

@@ -26,7 +26,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import be.maikel.xplorer.domain.Action
 import be.maikel.xplorer.domain.Money
-import be.maikel.xplorer.domain.SmartDca
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -38,9 +37,9 @@ fun LazyListScope.decisionsScreen(s: UiState, onBudget: (Double) -> Unit, onAsse
     val a = s.analysis ?: run { item { Muted("Chargement…") }; return }
     val plan = a.plan
     item {
-        SectionTitle("Que faire cette semaine ?")
+        SectionTitle("Simuler un autre budget")
         Glass {
-            Muted("Budget de la semaine (250 € par défaut)")
+            Muted("Teste une autre somme : la répartition se recalcule. Ton vrai plan reste celui de l'accueil.")
             Spacer(Modifier.height(8.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 listOf(50.0, 100.0, 250.0, 500.0, 1000.0).forEach { b -> Pill(Money.eur(b, 0), plan.budget == b, { onBudget(b) }) }
@@ -55,60 +54,20 @@ fun LazyListScope.decisionsScreen(s: UiState, onBudget: (Double) -> Unit, onAsse
             Text(plan.headline, style = MaterialTheme.typography.titleMedium, color = Xp.Ice)
             plan.cashWarning?.let { Banner(it) }
             Spacer(Modifier.height(6.dp))
-            val dca = a.dca
             plan.lines.forEach { l ->
-                val line = dca?.lines?.firstOrNull { it.symbol == l.symbol }
                 Row(Modifier.fillMaxWidth().padding(vertical = 7.dp), verticalAlignment = Alignment.Top) {
                     CoinBadge(l.symbol, 32); Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(l.symbol, style = MaterialTheme.typography.titleMedium, color = Xp.Ice, modifier = Modifier.weight(1f))
-                            if (line != null && l.eur > 0 && line.mult != 1.0) Tag("×" + (if (line.mult % 1.0 == 0.0) line.mult.toInt().toString() else line.mult.toString().replace('.', ',')), if (line.mult > 1) Xp.Gain else Xp.Amber)
-                            Spacer(Modifier.width(8.dp))
+                            Text(coinName(l.symbol), style = MaterialTheme.typography.titleMedium, color = Xp.Ice, modifier = Modifier.weight(1f))
                             Text(Money.eur(l.eur, 0), style = MaterialTheme.typography.titleMedium, color = if (l.eur > 0) Xp.Gain else Xp.Slate)
                         }
                         Muted(l.note)
                     }
                 }
             }
-            if (dca != null) {
-                Spacer(Modifier.height(6.dp)); Divider(); Spacer(Modifier.height(6.dp))
-                KV("Réserve « creux »", Money.eur(dca.reserveStart, 0),
-                    Xp.Gold, if (dca.reserveStart > 0.5) "en attente depuis ${dca.reserveDays} j · investie d'office après ${SmartDca.MAX_RESERVE_DAYS} j" else "vide : rien n'attend")
-                if (dca.fromReserve >= 1) KV("Pris dans la réserve", Money.eur(dca.fromReserve, 0), Xp.Gain)
-                if (dca.toReserve >= 1) KV("Mis en réserve cette semaine", Money.eur(dca.toReserve, 0), Xp.Amber, "à garder en EUR ou USDC sur Coinbase")
-                Spacer(Modifier.height(6.dp))
-                Muted(dca.explanation)
-                Spacer(Modifier.height(6.dp))
-                SmartDca.bands.forEach { b ->
-                    val lo = SmartDca.bands.getOrNull(SmartDca.bands.indexOf(b) - 1)?.upTo
-                    val range = when {
-                        lo == null -> "prix sous ${(b.upTo * 100).toInt()} % de sa moyenne 200 j"
-                        b.upTo.isInfinite() -> "au-dessus de ${(lo * 100).toInt()} %"
-                        else -> "de ${(lo * 100).toInt()} à ${(b.upTo * 100).toInt()} %"
-                    }
-                    Muted("${b.emoji} ${b.label} · $range")
-                }
-            }
             Spacer(Modifier.height(6.dp))
             Muted("Rien n'est acheté automatiquement : tu passes les ordres toi-même sur Coinbase.")
-        }
-    }
-    if (a.backtests.isNotEmpty()) item {
-        SectionTitle("Test sur le passé : intelligent contre DCA simple")
-        Glass {
-            Muted("Mêmes versements chaque semaine. On compare la valeur finale (réserve restante comptée en euros). Seule la moyenne 200 j connue à chaque date est utilisée.")
-            Spacer(Modifier.height(8.dp))
-            a.backtests.forEach { b ->
-                val e = b.edge
-                KV("${b.symbol} · ${b.weeks} semaines", if (e.isNaN()) "—" else Money.pct(e, true),
-                    if (e >= 0) Xp.Gain else Xp.Loss,
-                    "crypto accumulée ${Money.pct(b.unitsEdge, true)} · ${Money.eur(b.invested, 0)} versés · réserve finale ${Money.eur(b.cashLeft, 0)}")
-            }
-            Spacer(Modifier.height(6.dp))
-            val wins = a.backtests.count { it.edge > 0 }
-            Text("Gagnant sur $wins crypto(s) sur ${a.backtests.size}", style = MaterialTheme.typography.titleMedium, color = if (wins * 2 >= a.backtests.size) Xp.Gain else Xp.Amber)
-            Muted("Le passé ne garantit rien. Si le DCA simple fait mieux sur la durée, c'est lui qu'il faut garder.")
         }
     }
     item {

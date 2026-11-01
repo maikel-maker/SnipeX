@@ -63,6 +63,15 @@ object Pipeline {
                 messages += Triple("risque", "${p.symbol} — exposition au-dessus de ta limite", "${Money.pct(p.weight)} de tes cryptos pour une limite de ${Money.pct(st.maxFor(p.symbol))}.")
         }
 
+        // Widget : le plan de la semaine, de la plus grosse crypto à la plus petite (budget des réglages uniquement).
+        a.arenaPlan?.takeIf { a.dcaDefaultBudget }?.let { plan ->
+            val held = a.ledger.positions.associate { it.symbol to it.value }
+            val lines = plan.lines.filter { it.eur > 0 }.sortedByDescending { held[it.symbol] ?: 0.0 }
+            val body = if (lines.isEmpty()) "Rien à acheter cette semaine." else lines.joinToString("\n") { "${it.symbol}  ${Money.eur(it.eur, 0)}" }
+            val foot = "J'ai mis ${Money.eur(a.capital, 0)} · je possède ${Money.eur(a.ledger.totalEur, 0)}"
+            try { be.maikel.xplorer.work.PlanWidget.save(ctx, "📅 Cette semaine · ${Money.eur(plan.total, 0)}", body, foot) } catch (e: Exception) { }
+        }
+
         // 5. Le plan de la semaine : une notification chaque lundi (après les heures silencieuses), une seule fois.
         a.arenaPlan?.takeIf { a.dcaDefaultBudget && it.total > 0 }?.let { plan ->
             val cur = repo.prefs.load()
@@ -73,7 +82,8 @@ object Pipeline {
                 val held = a.ledger.positions.associate { it.symbol to it.value }
                 val body = plan.lines.filter { it.eur > 0 }.sortedByDescending { held[it.symbol] ?: 0.0 }
                     .joinToString(" · ") { "${it.symbol} ${Money.eur(it.eur, 0)}" }
-                if (cur.dcaWeek != null) messages += Triple("dca", "Ton DCA de la semaine : ${Money.eur(plan.total, 0)}", body)
+                val transfer = (plan.total - a.ledger.cashEur).takeIf { it > 0.5 }?.let { "Vire ${Money.eur(it, 0)}, puis achète : " } ?: "Achète : "
+                if (cur.dcaWeek != null) messages += Triple("dca", "Ton DCA de la semaine : ${Money.eur(plan.total, 0)}", transfer + body + ". Astuce : ordres limites pour moins de frais.")
                 repo.prefs.save(cur.copy(dcaWeek = week, dcaReserveStart = 0.0, dcaReserveSince = null, dcaPendingDelta = 0.0))
             }
         }

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+
+    <!-- viseur -->
+    <path android:strokeColor="#FFFFFF" android:strokeWidth="3.6" android:fillColor="#00000000"
+        android:pathData="M54,54m-25,0a25,25 0,1 1,50 0a25,25 0,1 1,-50 0" />
+    <path android:strokeColor="#FFFFFF" android:strokeWidth="3.6" android:strokeLineCap="round"
+        android:pathData="M54,22 L54,31 M54,77 L54,86 M22,54 L31,54 M77,54 L86,54" />
+    <!-- Bulls : bougie verte -->
+    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="2.4" android:strokeLineCap="round" android:pathData="M46,38 L46,66" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M41.5,43 h9 v16 h-9 z" />
+    <!-- Bears : bougie rouge -->
+    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="2.4" android:strokeLineCap="round" android:pathData="M62,44 L62,71" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M57.5,50 h9 v14 h-9 z" />
+</vector>
