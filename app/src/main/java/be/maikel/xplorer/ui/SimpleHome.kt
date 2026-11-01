@@ -89,25 +89,23 @@ fun LazyListScope.simpleHome(
                 Text(if (detail) "Masquer le détail ▲" else "D'où vient « J'ai mis » ? ▼", style = MaterialTheme.typography.labelLarge, color = Xp.Cyan)
                 if (detail) {
                     Spacer(Modifier.height(8.dp))
-                    val fmt = java.text.SimpleDateFormat("d MMM yyyy", java.util.Locale.FRANCE)
                     a.capitalLines.forEach { c ->
                         Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 Text(c.label, style = MaterialTheme.typography.bodyMedium, color = Xp.Ice)
-                                Muted(fmt.format(java.util.Date(c.t)))
                             }
-                            Text(Money.signedEur(c.eur, 2), style = MaterialTheme.typography.titleSmall, color = if (c.eur >= 0) Vivid.Sky else Feu.Orange)
+                            Text(Money.eur(c.eur, 2), style = MaterialTheme.typography.titleSmall, color = Vivid.Sky)
                         }
                     }
-                    if (a.capitalLines.isEmpty()) Muted("Aucun mouvement lu depuis le départ.")
+                    if (a.capitalLines.isEmpty()) Muted("Aucun virement lu pour l'instant.")
                     Divider()
                     Row(Modifier.fillMaxWidth().padding(top = 6.dp)) {
-                        Text("Total de tes virements", style = MaterialTheme.typography.titleSmall, color = Color.White, modifier = Modifier.weight(1f))
+                        Text("Total mis pour le DCA", style = MaterialTheme.typography.titleSmall, color = Color.White, modifier = Modifier.weight(1f))
                         Text(Money.eur(a.capital, 2), style = MaterialTheme.typography.titleSmall, color = Color.White)
                     }
                     if (a.capitalManual) Muted("Montant corrigé à la main dans les réglages.")
                     Spacer(Modifier.height(4.dp))
-                    Muted("« J'ai mis » = la somme de tes virements vers Coinbase, lus avec ta clé (lecture seule). Les retraits ne comptent pas dans ton DCA.")
+                    Muted("« J'ai mis » = l'argent que tu as mis pour ton DCA, lu sur tes virements Coinbase (clé en lecture seule). L'argent que tu as récupéré sur ta banque est retiré du calcul, comme si tu ne l'avais jamais mis.")
                 }
             } else {
                 Spacer(Modifier.height(10.dp))

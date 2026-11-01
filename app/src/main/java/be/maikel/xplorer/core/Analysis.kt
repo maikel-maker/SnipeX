@@ -104,11 +104,18 @@ object Analyzer {
 
         val capitalManual = st.capitalOverride != null
         val sinceStart = st.startDate != null && history?.startValue != null
-        // « J'ai mis » = uniquement les virements de ta banque vers Coinbase (choix de Maïkel, 01/11/2026).
-        // Les retraits ne font pas partie du DCA : ils ne sont ni déduits ni affichés ici.
-        val capitalLines = s.ops.filter { op -> op.type == "fiat_deposit" && Ledger.isCash(op.cur) }
-            .map { op -> CapitalLine(op.t, "Virement vers Coinbase", if (op.cur in Ledger.EURLIKE) op.amount else op.eur) }
-            .filter { it.eur > 0.005 }
+        // « J'ai mis » = l'argent réellement laissé pour le DCA (choix de Maïkel, 01/11/2026) :
+        // virements de ta banque vers Coinbase, comme si l'argent revenu sur ta banque n'avait jamais été mis.
+        // Affiché mois par mois, net : aucune ligne de retrait n'apparaît.
+        val monthFmt = java.text.SimpleDateFormat("MMMM yyyy", java.util.Locale.FRANCE)
+        val capitalLines = s.ops.filter { op -> op.type in Ledger.FIAT_FLOW && Ledger.isCash(op.cur) }
+            .groupBy { op -> java.util.Calendar.getInstance().apply { timeInMillis = op.t }.let { it.get(java.util.Calendar.YEAR) * 12 + it.get(java.util.Calendar.MONTH) } }
+            .map { (_, list) ->
+                val net = list.sumOf { op -> if (op.cur in Ledger.EURLIKE) op.amount else op.eur }
+                val t = list.minOf { it.t }
+                CapitalLine(t, monthFmt.format(java.util.Date(t)).replaceFirstChar { it.uppercase() }, net)
+            }
+            .filter { kotlin.math.abs(it.eur) > 0.005 }
             .sortedByDescending { it.t }
         val autoCapital = capitalLines.sumOf { it.eur }
         val capital = st.capitalOverride ?: autoCapital
