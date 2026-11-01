@@ -2,6 +2,6 @@
 <resources>
     <string name="app_name">SnipeX</string>
     <string name="channel_signals">Signaux et alertes</string>
-    <string name="widget_loading">SnipeX · ouvre l'app une fois</string>
+    <string name="widget_loading">SnipeX · ouvre l\'app une fois</string>
     <string name="widget_description">Ton DCA de la semaine : combien acheter de chaque crypto.</string>
 </resources>
