@@ -104,11 +104,14 @@ object Analyzer {
 
         val capitalManual = st.capitalOverride != null
         val sinceStart = st.startDate != null && history?.startValue != null
-        // « J'ai mis » = uniquement les virements reçus de ta banque sur Coinbase (choix de Maïkel, 01/11/2026).
-        // Ni retraits, ni dépenses carte, ni valeur de départ : seulement l'argent que tu as mis pour la crypto.
-        val capitalLines = s.ops.filter { op -> op.type == "fiat_deposit" && Ledger.isCash(op.cur) }
-            .map { op -> CapitalLine(op.t, "Virement vers Coinbase", if (op.cur in Ledger.EURLIKE) op.amount else op.eur) }
-            .filter { it.eur > 0 }
+        // « J'ai mis » = ce qu'il reste de ton argent dans la crypto : virements de ta banque vers Coinbase
+        // moins les virements de Coinbase vers ta banque (choix de Maïkel, 01/11/2026). Rien d'autre.
+        val capitalLines = s.ops.filter { op -> op.type in Ledger.FIAT_FLOW && Ledger.isCash(op.cur) }
+            .map { op ->
+                val e = if (op.cur in Ledger.EURLIKE) op.amount else op.eur
+                CapitalLine(op.t, if (e >= 0) "Virement de ta banque vers Coinbase" else "Virement de Coinbase vers ta banque", e)
+            }
+            .filter { kotlin.math.abs(it.eur) > 0.005 }
             .sortedByDescending { it.t }
         val autoCapital = capitalLines.sumOf { it.eur }
         val capital = st.capitalOverride ?: autoCapital

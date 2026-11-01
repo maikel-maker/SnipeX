@@ -102,12 +102,12 @@ fun LazyListScope.simpleHome(
                     if (a.capitalLines.isEmpty()) Muted("Aucun mouvement lu depuis le départ.")
                     Divider()
                     Row(Modifier.fillMaxWidth().padding(top = 6.dp)) {
-                        Text("Total des virements", style = MaterialTheme.typography.titleSmall, color = Color.White, modifier = Modifier.weight(1f))
+                        Text("Reste investi", style = MaterialTheme.typography.titleSmall, color = Color.White, modifier = Modifier.weight(1f))
                         Text(Money.eur(a.capital, 2), style = MaterialTheme.typography.titleSmall, color = Color.White)
                     }
                     if (a.capitalManual) Muted("Montant corrigé à la main dans les réglages.")
                     Spacer(Modifier.height(4.dp))
-                    Muted("« J'ai mis » = la somme de tes virements de ta banque vers Coinbase, lus avec ta clé (lecture seule). Les retraits et les dépenses carte ne sont pas déduits.")
+                    Muted("« J'ai mis » = tes virements vers Coinbase moins ce que tu as reviré vers ta banque, lus avec ta clé (lecture seule). C'est l'argent qui reste vraiment dans ta crypto.")
                 }
             } else {
                 Spacer(Modifier.height(10.dp))
