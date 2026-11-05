@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Écran de démarrage Android 12+ : fond nuit, viseur SnipeX sur pastille en dégradé. -->
+    <!-- Écran de démarrage Android 12+ : fond nuit, viseur Diapason sur pastille en dégradé. -->
     <style name="Theme.Xplorer" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">@color/abyss</item>
         <item name="android:statusBarColor">@color/abyss</item>
