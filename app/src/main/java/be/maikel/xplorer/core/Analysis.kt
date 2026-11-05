@@ -55,7 +55,7 @@ data class Analysis(
     val dcaWeek: Long = 0,
     val dcaDefaultBudget: Boolean = true,
     val dcaCashWarning: String? = null,
-    /** Diapason : débat des agents par crypto, répartition de la semaine et test sur le passé. */
+    /** Xcap : débat des agents par crypto, répartition de la semaine et test sur le passé. */
     val arena: Map<String, Arena.Debate> = emptyMap(),
     val arenaPlan: Arena.Plan? = null,
     val arenaBacktest: Arena.Backtest? = null,
@@ -135,7 +135,7 @@ object Analyzer {
                 rules, now,
             )
         }
-        // Diapason : l'arène des agents répartit le budget de la semaine, en entier, entre les cryptos du plan.
+        // Xcap : l'arène des agents répartit le budget de la semaine, en entier, entre les cryptos du plan.
         val journal = DcaJournal.compute(ledger.trades, st.startDate ?: (now - 84 * 86_400_000L), now) { w ->
             weeklyFromMonthly(st.monthlyBudget, w + 43_200_000L)
         }

@@ -56,7 +56,7 @@ private fun hello(): String = when (Calendar.getInstance().get(Calendar.HOUR_OF_
 }
 
 /**
- * Accueil Diapason : ton argent, la consigne de la semaine, l'arène des agents.
+ * Accueil Xcap : ton argent, la consigne de la semaine, l'arène des agents.
  * Aucun mot technique ici : tout le détail reste dans l'onglet « Détails ».
  */
 @OptIn(ExperimentalLayoutApi::class)

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Diapason</string>
+    <string name="app_name">Xcap</string>
     <string name="channel_signals">Signaux et alertes</string>
-    <string name="widget_loading">Diapason · ouvre l\'app une fois</string>
+    <string name="widget_loading">Xcap · ouvre l\'app une fois</string>
     <string name="widget_description">Ton DCA de la semaine : combien acheter de chaque crypto.</string>
 </resources>

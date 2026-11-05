@@ -1,4 +1,4 @@
-name: Diapason Android
+name: Xcap Android
 
 on:
   push:
@@ -100,8 +100,8 @@ jobs:
           if $BT/aapt2 dump permissions "$APK" | grep -viE "INTERNET|NETWORK_STATE|POST_NOTIFICATIONS|RECEIVE_BOOT_COMPLETED|WAKE_LOCK|FOREGROUND_SERVICE|DYNAMIC_RECEIVER|package:|uses-permission: name='be.maikel" | grep -i "uses-permission"; then
             echo "Permission inattendue"; exit 1
           fi
-          cp "$APK" Diapason.apk
-          ls -la Diapason.apk
+          cp "$APK" Xcap.apk
+          ls -la Xcap.apk
 
       - name: Erreurs lisibles
         if: failure()
@@ -121,8 +121,8 @@ jobs:
         if: ${{ github.ref != 'refs/heads/main' }}
         uses: actions/upload-artifact@v4
         with:
-          name: Diapason-apk
-          path: Diapason.apk
+          name: Xcap-apk
+          path: Xcap.apk
 
       - name: Pré-version de test (branches)
         if: ${{ github.ref != 'refs/heads/main' }}
@@ -131,8 +131,8 @@ jobs:
           tag_name: test-${{ github.ref_name }}-${{ github.run_number }}
           name: "TEST ${{ github.ref_name }} (${{ github.run_number }})"
           body: |
-            Version de test, non publiée comme version officielle. Installe Diapason.apk pour essayer.
-          files: Diapason.apk
+            Version de test, non publiée comme version officielle. Installe Xcap.apk pour essayer.
+          files: Xcap.apk
           prerelease: true
           make_latest: false
 
@@ -141,9 +141,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v3.0.${{ github.run_number }}
-          name: Diapason 3.0.${{ github.run_number }}
+          name: Xcap 3.0.${{ github.run_number }}
           body: |
-            Diapason natif (Kotlin + Jetpack Compose). Installe Diapason.apk sur ton Samsung. Xplorer est remplacé : mêmes données, même clé Coinbase.
+            Xcap natif (Kotlin + Jetpack Compose). Installe Xcap.apk sur ton Samsung. Xplorer est remplacé : mêmes données, même clé Coinbase.
             Tests unitaires et contrôle « lecture seule » passés avant publication.
-          files: Diapason.apk
+          files: Xcap.apk
           make_latest: true

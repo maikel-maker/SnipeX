@@ -36,7 +36,7 @@ import be.maikel.xplorer.domain.Action
 import be.maikel.xplorer.domain.Milestones
 import be.maikel.xplorer.domain.Money
 
-/** Palette vive de Diapason. Vert = Bulls, rouge = Bears. */
+/** Palette vive de Xcap. Vert = Bulls, rouge = Bears. */
 object Vivid {
     val Bulls = Color(0xFF2EE58A)
     val Bears = Color(0xFFFF4D6A)

@@ -33,7 +33,7 @@
         <receiver
             android:name=".work.PlanWidget"
             android:exported="false"
-            android:label="Diapason · Ma semaine">
+            android:label="Xcap · Ma semaine">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>

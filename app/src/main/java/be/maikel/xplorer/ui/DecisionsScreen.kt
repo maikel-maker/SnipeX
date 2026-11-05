@@ -88,14 +88,14 @@ fun LazyListScope.decisionsScreen(s: UiState, onBudget: (Double) -> Unit, onAsse
     item {
         val graded = s.journal.filter { it.verdict == "juste" || it.verdict == "raté" }
         val good = graded.count { it.verdict == "juste" }
-        SectionTitle("Diapason avait-il raison ?")
+        SectionTitle("Xcap avait-il raison ?")
         Glass {
             if (graded.isEmpty()) {
                 Text("Pas encore de note", style = MaterialTheme.typography.titleMedium, color = Xp.Ice)
                 Muted("Chaque conseil est enregistré tel quel puis noté après 21 jours : un achat est juste si le prix a monté, une vente si le prix a baissé. « Attendre » et « Conserver » ne sont pas notés.")
             } else {
                 Text("$good / ${graded.size}", style = MaterialTheme.typography.displayLarge, color = Xp.Gold)
-                Muted("conseils justes, soit ${Money.pct(good.toDouble() / graded.size)}. Sous 50 %, Diapason ne fait pas mieux qu'une pièce jetée en l'air.")
+                Muted("conseils justes, soit ${Money.pct(good.toDouble() / graded.size)}. Sous 50 %, Xcap ne fait pas mieux qu'une pièce jetée en l'air.")
             }
             Spacer(Modifier.height(8.dp))
             s.journal.take(40).forEach { j ->

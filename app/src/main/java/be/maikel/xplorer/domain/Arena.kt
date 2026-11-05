@@ -7,7 +7,7 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 
 /**
- * L'Arène Diapason : six signaux votent, crypto par crypto, Bulls (ça va monter) contre Bears (ça va baisser).
+ * L'Arène Xcap : six signaux votent, crypto par crypto, Bulls (ça va monter) contre Bears (ça va baisser).
  *
  * Ce que l'arène décide : la RÉPARTITION du budget de la semaine entre tes cryptos.
  * Ce qu'elle ne décide jamais : garder de l'argent de côté. Le budget part en entier chaque semaine,

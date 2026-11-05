@@ -148,5 +148,5 @@ fun LazyListScope.overviewScreen(a: Analysis?, hasKey: Boolean, onAsset: (String
         }
     }
     item { dataQualityCard(a.issues) }
-    item { Spacer(Modifier.height(8.dp)); Muted("Diapason conseille, il ne passe jamais d'ordre. Aucun signal n'est une garantie de bénéfice.", Modifier.padding(horizontal = 8.dp)) }
+    item { Spacer(Modifier.height(8.dp)); Muted("Xcap conseille, il ne passe jamais d'ordre. Aucun signal n'est une garantie de bénéfice.", Modifier.padding(horizontal = 8.dp)) }
 }
