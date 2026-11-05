@@ -41,6 +41,7 @@ import be.maikel.xplorer.core.Analysis
 import be.maikel.xplorer.domain.Money
 import java.util.Calendar
 import androidx.compose.runtime.Composable
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.graphics.luminance
