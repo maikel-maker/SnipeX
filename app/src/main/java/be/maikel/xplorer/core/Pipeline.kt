@@ -117,6 +117,32 @@ object Pipeline {
             messages += Triple("calme", "Le marché baisse fort, garde ton plan", "Bitcoin ${Money.pct(d, true)} en 7 jours. C'est justement là que ton DCA achète moins cher : continue tes achats prévus, ne vends pas sous le coup de la peur.")
         }
 
+        // 8. Chasseur de creux : la crypto a baissé de 3 % depuis lundi, ou c'est vendredi.
+        val names = mapOf("BTC" to "Bitcoin", "ETH" to "Ethereum", "GEOD" to "Geodnet", "LINK" to "Chainlink", "TAO" to "Bittensor")
+        a.dipHunter?.takeIf { a.dcaDefaultBudget }?.let { h ->
+            val dips = h.lines.filter { it.state == be.maikel.xplorer.domain.DipHunter.State.DIP && it.laterEur >= 1 }
+            for (l in dips) {
+                messages += Triple("creux", "Creux sur ${names[l.symbol] ?: l.symbol} : achète le reste",
+                    "${l.symbol} ${l.change?.let { Money.pct(it, true) } ?: ""} depuis lundi. C'est le creux attendu : achète maintenant tes ${Money.eur(l.laterEur, 0)} restants.")
+            }
+            val friday = Calendar.getInstance().get(Calendar.DAY_OF_WEEK) == Calendar.FRIDAY
+            val waiting = h.lines.filter { it.state == be.maikel.xplorer.domain.DipHunter.State.DEADLINE && it.laterEur >= 1 }
+            if (friday && waiting.isNotEmpty())
+                messages += Triple("creux", "Vendredi : achète le reste de ta semaine",
+                    "Pas de creux cette semaine pour " + waiting.joinToString(", ") { "${it.symbol} (${Money.eur(it.laterEur, 0)})" } + ". On achète maintenant, on n'attend pas plus.")
+        }
+        // 9. Sentinelle GEOD : un palier ×5, ×10 ou ×20 franchi pour la première fois.
+        a.sentinel?.let { s ->
+            val cur = repo.prefs.load()
+            val lv = be.maikel.xplorer.domain.Sentinel.levelReached(s.multiple, s.target)
+            if (lv > cur.geodAlertLevel) {
+                messages += Triple("geod", if (s.reachedTarget) "GEOD a atteint ×${s.target.toInt()} : ta règle de vente" else "GEOD passe ×$lv",
+                    if (s.reachedTarget) "Tes GEOD valent ${Money.eur(s.valueNow, 0)}. C'est le seuil que tu t'étais fixé : à toi de décider combien vendre."
+                    else "Tes GEOD valent ${Money.eur(s.valueNow, 0)} (×${"%.1f".format(java.util.Locale.FRANCE, s.multiple)}). Ta règle reste : on ne vend pas avant ×${s.target.toInt()}.")
+                repo.prefs.save(cur.copy(geodAlertLevel = lv))
+            }
+        }
+
         if (!notify || !st.notifications) return
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
         val quiet = if (st.quietStart > st.quietEnd) hour >= st.quietStart || hour < st.quietEnd else hour in st.quietStart until st.quietEnd

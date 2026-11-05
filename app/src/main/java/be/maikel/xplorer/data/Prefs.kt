@@ -42,6 +42,8 @@ data class Settings(
     val recapMonth: Int? = null,
     /** Calcul de « J'ai mis » : seulement l'argent versé (défaut) ou valeur au départ + mouvements. */
     val capitalMode: String = CAPITAL_TRANSFERS,
+    /** Sentinelle GEOD : plus haut niveau (×5, ×10, ×20) déjà signalé par une notification. */
+    val geodAlertLevel: Int = 0,
 ) {
     fun maxFor(sym: String) = maxWeight[sym] ?: maxWeightDefault
 

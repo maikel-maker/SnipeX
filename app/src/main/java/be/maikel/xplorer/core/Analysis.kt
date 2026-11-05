@@ -72,6 +72,18 @@ data class Analysis(
     val weekBought: Double = 0.0,
     /** Frais réels payés sur tes achats (taux moyen, d'après Coinbase). */
     val feeRate: Double = 0.0,
+    /** Chasseur de creux : ce qui s'achète maintenant et ce qui attend un creux. */
+    val dipHunter: be.maikel.xplorer.domain.DipHunter.Result? = null,
+    /** Miroir : ta méthode contre trois versions de toi. */
+    val mirror: be.maikel.xplorer.domain.Mirror.Result? = null,
+    /** Cap 2030 : projection et paliers datés. */
+    val cap: be.maikel.xplorer.domain.Cap.Result? = null,
+    /** Sentinelle GEOD : ta règle ×20. */
+    val sentinel: be.maikel.xplorer.domain.Sentinel.Result? = null,
+    /** Gardien : tes achats passés dans les creux, quand le marché chute fort. */
+    val guardian: be.maikel.xplorer.domain.Guardian.Result? = null,
+    /** Rang du lundi de la semaine dans le mois (5 = semaine de pause). */
+    val mondayRank: Int = 1,
 )
 
 /** Un mouvement d'argent qui compte dans « J'ai mis ». [eur] positif = apport, négatif = retrait. */
@@ -137,12 +149,12 @@ object Analyzer {
         }
         // Xcap : l'arène des agents répartit le budget de la semaine, en entier, entre les cryptos du plan.
         val journal = DcaJournal.compute(ledger.trades, st.startDate ?: (now - 84 * 86_400_000L), now) { w ->
-            weeklyFromMonthly(st.monthlyBudget, w + 43_200_000L)
+            be.maikel.xplorer.domain.Budget.week(st.weeklyBudget, st.monthlyBudget, w)
         }
         val week = weekIndex(now)
-        // 1 000 € par mois, pas un euro de plus : le mois (celui du lundi de la semaine) est divisé par ses lundis (4 → 250 €, 5 → 200 €).
+        // 250 € les 4 premiers lundis du mois, jamais plus de 1 000 € par mois : le 5e lundi est une pause.
         val monday = DcaJournal.weekStart(now)
-        val weekBudget = weeklyFromMonthly(st.monthlyBudget, monday + 43_200_000L)
+        val weekBudget = be.maikel.xplorer.domain.Budget.week(st.weeklyBudget, st.monthlyBudget, monday)
         // Ce qui a déjà été acheté cette semaine est retiré : l'app ne te fait jamais dépasser le budget.
         val weekBought = journal.weeks.firstOrNull { it.start == monday }?.bought ?: 0.0
         val weekly = budget ?: kotlin.math.max(0.0, weekBudget - weekBought)
@@ -169,6 +181,18 @@ object Analyzer {
             val ago = d[d.size - 8].close
             if (ago > 0 && nowP > 0) nowP / ago - 1 else null
         }
+        val dipHunter = be.maikel.xplorer.domain.DipHunter.compute(
+            arenaPlan.lines.associate { it.symbol to it.eur }, weekBudget, weekBought,
+            be.maikel.xplorer.domain.DipHunter.mondayOpen(s.daily, monday), s.prices, now,
+        )
+        val mirror = try { be.maikel.xplorer.domain.Mirror.compute(ledger.trades, st.startDate ?: 0L, s.daily, s.prices, st.targets) } catch (e: Exception) { null }
+        val cap = try {
+            be.maikel.xplorer.domain.Cap.project(now, ledger.cryptoEur, st.monthlyBudget, ledger.positions.associate { it.symbol to it.qty }, s.prices, st.targets)
+        } catch (e: Exception) { null }
+        val sentinel = be.maikel.xplorer.domain.Sentinel.compute(
+            s.prices["GEOD"], st.geodBase, st.geodMultiple, ledger.positions.firstOrNull { it.symbol == "GEOD" }?.qty ?: 0.0,
+        )
+        val guardian = try { be.maikel.xplorer.domain.Guardian.compute(btcWeek, ledger.trades, s.daily, s.prices) } catch (e: Exception) { null }
         val arenaBacktest = try { Arena.backtest(s.daily, st.targets, st.weeklyBudget) } catch (e: Exception) { null }
         val signals = universe.flatMap { sym ->
             Radar.scan(sym, s.daily[sym] ?: emptyList(), s.prices[sym] ?: Double.NaN, weights[sym] ?: 0.0, st.maxFor(sym), s.volume24Eur[sym])
@@ -187,7 +211,8 @@ object Analyzer {
         return Analysis(s, ledger, history, recs, plan, signals, health(s, ledger, history), capital, capitalManual, gain, gainPct, dayChange to dayPct, issues, sinceStart, history?.startValue, lifetimeGain,
             week, budget == null, cashWarning,
             arena, arenaPlan, arenaBacktest, milestones, journal, btcWeek, capitalLines,
-            weekBudget, weekBought, journal.feePct)
+            weekBudget, weekBought, journal.feePct,
+            dipHunter, mirror, cap, sentinel, guardian, be.maikel.xplorer.domain.Budget.mondayRank(monday))
     }
 
     private fun health(s: Snapshot, l: LedgerResult, h: PortfolioHistory?): Health {

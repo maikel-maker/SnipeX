@@ -122,7 +122,7 @@ fun LazyListScope.simpleHome(
     }
 
     // Ne panique pas : grosse baisse du Bitcoin.
-    a.btcWeek?.takeIf { it <= -0.15 }?.let { d -> item { calmBanner(d) } }
+    a.guardian?.let { g -> item { guardianCard(g) } } ?: a.btcWeek?.takeIf { it <= -0.15 }?.let { d -> item { calmBanner(d) } }
 
     // 2. La consigne de la semaine.
     // Ordre : de ta plus grosse crypto à la plus petite.
@@ -141,11 +141,13 @@ fun LazyListScope.simpleHome(
                 .background(WeekInk)
                 .padding(horizontal = 14.dp, vertical = 18.dp),
         ) {
-            val mondays = be.maikel.xplorer.core.mondaysInMonth(be.maikel.xplorer.domain.DcaJournal.weekStart(System.currentTimeMillis()) + 43_200_000L)
             Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("Cette semaine", style = MaterialTheme.typography.titleLarge, color = Xp.Gold)
-                    Muted("${Money.eur(a.snap.settings.monthlyBudget, 0)} par mois ÷ $mondays lundis")
+                    Muted(
+                        if (a.mondayRank >= 5) "5e lundi du mois : pause, tes ${Money.eur(a.snap.settings.monthlyBudget, 0)} sont atteints"
+                        else "${Money.eur(a.snap.settings.weeklyBudget, 0)} par semaine · ${Money.eur(a.snap.settings.monthlyBudget, 0)} max par mois",
+                    )
                 }
                 Text(Money.eur(a.weekBudget, 0), style = BigNumber.copy(fontSize = 30.sp), color = Xp.Gold)
             }
@@ -157,11 +159,18 @@ fun LazyListScope.simpleHome(
             }
             Spacer(Modifier.height(10.dp))
             if (buys.isEmpty()) {
-                Text(if (a.weekBought >= 1) "Semaine bouclée ✅" else "Rien à acheter.", style = MaterialTheme.typography.titleLarge, color = Xp.Ice)
-                Spacer(Modifier.height(4.dp))
-                Text(a.plan.headline, style = MaterialTheme.typography.bodyLarge, color = Xp.Ice)
+                if (a.mondayRank >= 5 && a.weekBought < 1) {
+                    Text("Semaine de pause", style = MaterialTheme.typography.titleLarge, color = Xp.Ice)
+                    Spacer(Modifier.height(4.dp))
+                    Text("Tu as déjà mis tes 4 × ${Money.eur(a.snap.settings.weeklyBudget, 0)} ce mois-ci. On reprend lundi prochain.", style = MaterialTheme.typography.bodyLarge, color = Xp.Ice)
+                } else {
+                    Text(if (a.weekBought >= 1) "Semaine bouclée ✅" else "Rien à acheter.", style = MaterialTheme.typography.titleLarge, color = Xp.Ice)
+                    Spacer(Modifier.height(4.dp))
+                    Text(a.plan.headline, style = MaterialTheme.typography.bodyLarge, color = Xp.Ice)
+                }
             } else {
                 if (a.weekBought >= 1) Muted("Il te reste à acheter :", Modifier.padding(start = 4.dp, bottom = 4.dp), small = false)
+                a.dipHunter?.let { h -> hunterIntro(h) }
                 buys.forEach { b ->
                     val d = a.arena[b.symbol]
                     // Pourquoi ce montant : la cible contre ce que tu as aujourd'hui.
@@ -195,6 +204,7 @@ fun LazyListScope.simpleHome(
                                     color = if (d.score > 0) Vivid.Bulls else Vivid.Bears,
                                 )
                             }
+                            a.dipHunter?.line(b.symbol)?.let { h -> dipLine(h) }
                         }
                         Spacer(Modifier.width(10.dp))
                         Text(Money.eur(b.eur, 0), style = MaterialTheme.typography.titleLarge, color = Xp.Ice)
@@ -233,6 +243,11 @@ fun LazyListScope.simpleHome(
         }
         }
     }
+
+    // Le Miroir, la Sentinelle GEOD et Cap 2030.
+    a.mirror?.let { m -> item { mirrorCard(m) } }
+    a.sentinel?.let { s -> item { sentinelCard(s) } }
+    a.cap?.let { c -> item { capCard(c) } }
 
     // Journal : semaines faites, montants réels, frais.
     if (a.journal != null) item { journalCard(a) }
