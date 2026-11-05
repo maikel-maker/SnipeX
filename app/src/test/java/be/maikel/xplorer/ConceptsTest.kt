@@ -59,7 +59,7 @@ class ConceptsTest {
 
     @Test fun fridayBuysTheRest() {
         val fri = at(2026, 11, 13)
-        val h = DipHunter.compute(mapOf("BTC" to 100.0), 250.0, 0.0, mapOf("BTC" to 100.0), mapOf("BTC" to 101.0), fri)
+        val h = DipHunter.compute(mapOf("BTC" to 250.0), 250.0, 0.0, mapOf("BTC" to 100.0), mapOf("BTC" to 101.0), fri)
         assertEquals(DipHunter.State.DEADLINE, h.line("BTC")!!.state)
     }
 
