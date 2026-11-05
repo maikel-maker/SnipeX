@@ -41,7 +41,6 @@ import be.maikel.xplorer.core.Analysis
 import be.maikel.xplorer.domain.Money
 import java.util.Calendar
 import androidx.compose.runtime.Composable
-import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.graphics.luminance
@@ -130,13 +129,6 @@ fun LazyListScope.simpleHome(
     val held = l.positions.associate { it.symbol to it.value }
     val buys = a.plan.lines.filter { it.eur > 0 }.sortedByDescending { held[it.symbol] ?: 0.0 }
     item {
-        var buyMode by rememberSaveable { mutableStateOf(false) }
-        val clip = androidx.compose.ui.platform.LocalClipboardManager.current
-        val ctx = androidx.compose.ui.platform.LocalContext.current
-        fun copy(label: String, v: String) {
-            clip.setText(androidx.compose.ui.text.AnnotatedString(v))
-            android.widget.Toast.makeText(ctx, "$label copié : $v", android.widget.Toast.LENGTH_SHORT).show()
-        }
         Spacer(Modifier.height(14.dp))
         // Carte de la semaine : fin contour dégradé or → rose → violet, fond nuit uni.
         Box(
@@ -208,51 +200,8 @@ fun LazyListScope.simpleHome(
                         Text(Money.eur(b.eur, 0), style = MaterialTheme.typography.titleLarge, color = Xp.Ice)
                         Text("  ›", style = MaterialTheme.typography.titleLarge, color = Color(0xFF5A6884))
                     }
-                    // Mode achat : prix limite et quantité à taper sur Coinbase Advanced (touche pour copier).
-                    if (buyMode) be.maikel.xplorer.domain.LimitOrder.suggest(b.eur, a.snap.prices[b.symbol] ?: Double.NaN, a.feeRate)?.let { sg ->
-                        Row(Modifier.fillMaxWidth().padding(start = 44.dp, bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Column(
-                                Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(Color.White.copy(alpha = 0.08f))
-                                    .clickable { copy("Prix limite", sg.priceText) }.padding(8.dp),
-                            ) {
-                                Muted("Prix limite 📋")
-                                Text("${sg.priceText} €", style = MaterialTheme.typography.titleSmall, color = Color.White)
-                            }
-                            Column(
-                                Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(Color.White.copy(alpha = 0.08f))
-                                    .clickable { copy("Quantité", sg.qtyText) }.padding(8.dp),
-                            ) {
-                                Muted("Quantité 📋")
-                                Text("${sg.qtyText} ${b.symbol}", style = MaterialTheme.typography.titleSmall, color = Color.White, maxLines = 1)
-                            }
-                        }
-                    }
                 }
                 Spacer(Modifier.height(10.dp))
-                // Mode achat : un vrai bouton doré, impossible à rater.
-                val ink = Color(0xFF1A1205)
-                Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
-                        .background(if (buyMode) Xp.Gold.copy(alpha = 0.14f) else Xp.Gold)
-                        .border(1.dp, Xp.Gold, RoundedCornerShape(16.dp))
-                        .clickable { buyMode = !buyMode }.padding(horizontal = 14.dp, vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    androidx.compose.material3.Icon(
-                        androidx.compose.material.icons.Icons.Default.ShoppingCart, contentDescription = null,
-                        tint = if (buyMode) Xp.Gold else ink, modifier = Modifier.size(22.dp),
-                    )
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(if (buyMode) "Mode achat activé" else "Mode achat : prêt à copier", style = MaterialTheme.typography.titleSmall, color = if (buyMode) Xp.Gold else ink)
-                        Text(
-                            if (buyMode) "Sur Coinbase Advanced : Acheter › Limite › colle le prix et la quantité. Frais estimés d'après tes vrais ordres : ≈ ${Money.eur(buys.sumOf { it.eur } * a.feeRate, 2)} pour la semaine."
-                            else "Prix et quantité pour chaque crypto",
-                            style = MaterialTheme.typography.bodySmall, color = if (buyMode) Xp.Ice else ink.copy(alpha = 0.8f),
-                        )
-                    }
-                    Text(if (buyMode) "▴" else "›", style = MaterialTheme.typography.titleLarge, color = if (buyMode) Xp.Gold else ink)
-                }
                 Spacer(Modifier.height(6.dp))
                 Text("Les montants te ramènent pile à ta répartition. Touche une crypto pour son analyse.", style = MaterialTheme.typography.bodyMedium, color = Xp.Slate)
                 // Rappel doux : pas d'alarme, juste ce qu'il faut virer et une astuce.
