@@ -41,6 +41,12 @@ import be.maikel.xplorer.core.Analysis
 import be.maikel.xplorer.domain.Money
 import java.util.Calendar
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 
 private fun hello(): String = when (Calendar.getInstance().get(Calendar.HOUR_OF_DAY)) {
     in 5..11 -> "Bonjour Maïkel"
@@ -70,23 +76,24 @@ fun LazyListScope.simpleHome(
     // 1. Ton argent, en une phrase.
     item {
         var detail by rememberSaveable { mutableStateOf(false) }
-        Glass(padding = 22, onClick = if (hasKey) ({ detail = !detail }) else null) {
+        Glass(padding = 20, onClick = if (hasKey) ({ detail = !detail }) else null) {
             if (hasKey) {
                 // Juste les faits : ce que tu as mis en DCA, et ce que tu possèdes aujourd'hui.
                 Muted("Mon DCA crypto", small = false)
-                Spacer(Modifier.height(10.dp))
-                Row(Modifier.fillMaxWidth()) {
+                Spacer(Modifier.height(12.dp))
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
                     Column(Modifier.weight(1f)) {
-                        Muted("J'ai mis", small = false)
-                        Text(Money.eur(a.capital, 0), style = MaterialTheme.typography.headlineMedium, color = Xp.Ice)
+                        Muted("J'ai mis")
+                        Text(Money.eur(a.capital, 0), style = BigNumber, color = Xp.Ice)
                     }
+                    Box(Modifier.padding(bottom = 6.dp).width(1.dp).height(40.dp).background(Xp.Edge2))
                     Column(Modifier.weight(1f), horizontalAlignment = Alignment.End) {
-                        Muted("Je possède", small = false)
-                        Text(Money.eur(l.totalEur, 0), style = MaterialTheme.typography.headlineMedium, color = Xp.Ice)
+                        Muted("Je possède")
+                        Text(Money.eur(l.totalEur, 0), style = BigNumber, color = Xp.Cyan)
                     }
                 }
-                Spacer(Modifier.height(8.dp))
-                Text(if (detail) "Masquer le détail ▲" else "D'où vient « J'ai mis » ? ▼", style = MaterialTheme.typography.labelLarge, color = Xp.Cyan)
+                Spacer(Modifier.height(12.dp))
+                Text(if (detail) "Masquer le détail  ▴" else "D'où vient « J'ai mis » ?  ▾", style = MaterialTheme.typography.labelLarge, color = Xp.Cyan)
                 if (detail) {
                     Spacer(Modifier.height(8.dp))
                     a.capitalLines.forEach { c ->
@@ -130,16 +137,25 @@ fun LazyListScope.simpleHome(
             android.widget.Toast.makeText(ctx, "$label copié : $v", android.widget.Toast.LENGTH_SHORT).show()
         }
         Spacer(Modifier.height(14.dp))
-        val shape = RoundedCornerShape(22.dp)
-        Column(
-            Modifier.fillMaxWidth().clip(shape)
-                .background(Brush.linearGradient(listOf(Color(0x66FFC94D), Color(0x40FF4FA3), Color(0x338B5CFF))))
-                .border(1.dp, Brush.linearGradient(Vivid.Rainbow), shape)
-                .padding(22.dp),
+        // Carte de la semaine : fin contour dégradé or → rose → violet, fond nuit uni.
+        Box(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp))
+                .background(Brush.linearGradient(listOf(Color(0xFFF2B544), Color(0xFFE0607E), Color(0xFF7C5CFF))))
+                .padding(2.dp),
         ) {
-            Text("📅  Cette semaine · ${Money.eur(a.weekBudget, 0)}", style = MaterialTheme.typography.titleMedium, color = Xp.Gold)
+        Column(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp))
+                .background(WeekInk)
+                .padding(horizontal = 14.dp, vertical = 18.dp),
+        ) {
             val mondays = be.maikel.xplorer.core.mondaysInMonth(be.maikel.xplorer.domain.DcaJournal.weekStart(System.currentTimeMillis()) + 43_200_000L)
-            Muted("${Money.eur(a.snap.settings.monthlyBudget, 0)} par mois ÷ $mondays lundis", small = false)
+            Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Cette semaine", style = MaterialTheme.typography.titleLarge, color = Xp.Gold)
+                    Muted("${Money.eur(a.snap.settings.monthlyBudget, 0)} par mois ÷ $mondays lundis")
+                }
+                Text(Money.eur(a.weekBudget, 0), style = BigNumber.copy(fontSize = 30.sp), color = Xp.Gold)
+            }
             if (a.weekBought >= 1) {
                 Spacer(Modifier.height(8.dp))
                 GradientBar(a.weekBought / a.weekBudget.coerceAtLeast(1.0), listOf(Vivid.Bulls.copy(alpha = 0.7f), Vivid.Bulls))
@@ -152,37 +168,44 @@ fun LazyListScope.simpleHome(
                 Spacer(Modifier.height(4.dp))
                 Text(a.plan.headline, style = MaterialTheme.typography.bodyLarge, color = Xp.Ice)
             } else {
-                Text(if (a.weekBought >= 1) "Il te reste à acheter :" else "Achète :", style = MaterialTheme.typography.bodyLarge, color = Xp.Slate)
+                if (a.weekBought >= 1) Muted("Il te reste à acheter :", Modifier.padding(start = 4.dp, bottom = 4.dp), small = false)
                 buys.forEach { b ->
                     val d = a.arena[b.symbol]
+                    // Pourquoi ce montant : la cible contre ce que tu as aujourd'hui.
+                    val target = a.snap.settings.targets[b.symbol] ?: 0.0
+                    val now = if (l.cryptoEur > 0) (held[b.symbol] ?: 0.0) / l.cryptoEur else 0.0
+                    val gap = now - target
+                    val (status, fg, bg) = when {
+                        gap < -0.01 -> Triple("on rattrape", Xp.Cyan, Color(0xFF0E2A33))
+                        gap > 0.01 -> Triple("on freine", Xp.Gold, Color(0xFF2A2210))
+                        else -> Triple("pile dedans", Color(0xFFB7C2D6), Color(0xFF1B2233))
+                    }
                     Row(
-                        Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable { onAsset(b.symbol) }.padding(vertical = 6.dp, horizontal = 4.dp),
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).clickable { onAsset(b.symbol) }.padding(vertical = 10.dp, horizontal = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        CoinBadge(b.symbol, 30); Spacer(Modifier.width(10.dp))
+                        SolidCoin(b.symbol, 42); Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(coinName(b.symbol), style = MaterialTheme.typography.titleMedium, color = Xp.Ice)
-                            // Pourquoi ce montant : la cible contre ce que tu as aujourd'hui.
-                            val target = a.snap.settings.targets[b.symbol] ?: 0.0
-                            val now = if (l.cryptoEur > 0) (held[b.symbol] ?: 0.0) / l.cryptoEur else 0.0
-                            val gap = now - target
-                            Text(
-                                "Cible ${Money.pct(target)} · tu as ${Money.pct(now)}" + when {
-                                    gap < -0.01 -> " → on rattrape"
-                                    gap > 0.01 -> " → on freine"
-                                    else -> " → pile dedans"
-                                },
-                                style = MaterialTheme.typography.labelMedium,
-                                color = when { gap < -0.01 -> Vivid.Sky; gap > 0.01 -> Vivid.Sun; else -> Xp.Slate },
-                            )
-                            if (d != null && (d.score > 0.15 || d.score < -0.15)) Text(
-                                if (d.score > 0) "Bulls" else "Bears",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = if (d.score > 0) Vivid.Bulls else Vivid.Bears,
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(coinName(b.symbol), style = MaterialTheme.typography.titleMedium, color = Xp.Ice, maxLines = 1)
+                                Spacer(Modifier.width(8.dp))
+                                Pill(status, fg, bg)
+                            }
+                            Spacer(Modifier.height(7.dp))
+                            TargetBar(now, target, fg)
+                            Spacer(Modifier.height(5.dp))
+                            Row {
+                                Text("tu as ${Money.pct(now)} · cible ${Money.pct(target)}", style = MaterialTheme.typography.labelSmall, color = Xp.Slate)
+                                if (d != null && (d.score > 0.15 || d.score < -0.15)) Text(
+                                    if (d.score > 0) " · Bulls" else " · Bears",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (d.score > 0) Vivid.Bulls else Vivid.Bears,
+                                )
+                            }
                         }
+                        Spacer(Modifier.width(10.dp))
                         Text(Money.eur(b.eur, 0), style = MaterialTheme.typography.titleLarge, color = Xp.Ice)
-                        Text("  ›", style = MaterialTheme.typography.titleLarge, color = Xp.Slate)
+                        Text("  ›", style = MaterialTheme.typography.titleLarge, color = Color(0xFF5A6884))
                     }
                     // Mode achat : prix limite et quantité à taper sur Coinbase Advanced (touche pour copier).
                     if (buyMode) be.maikel.xplorer.domain.LimitOrder.suggest(b.eur, a.snap.prices[b.symbol] ?: Double.NaN, a.feeRate)?.let { sg ->
@@ -204,22 +227,30 @@ fun LazyListScope.simpleHome(
                         }
                     }
                 }
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(10.dp))
+                // Mode achat : un vrai bouton doré, impossible à rater.
+                val ink = Color(0xFF1A1205)
                 Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
-                        .background(if (buyMode) Vivid.Sky.copy(alpha = 0.18f) else Color.White.copy(alpha = 0.06f))
-                        .clickable { buyMode = !buyMode }.padding(12.dp),
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
+                        .background(if (buyMode) Xp.Gold.copy(alpha = 0.14f) else Xp.Gold)
+                        .border(1.dp, Xp.Gold, RoundedCornerShape(16.dp))
+                        .clickable { buyMode = !buyMode }.padding(horizontal = 14.dp, vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("🛒", style = MaterialTheme.typography.titleMedium)
-                    Spacer(Modifier.width(10.dp))
+                    androidx.compose.material3.Icon(
+                        androidx.compose.material.icons.Icons.Default.ShoppingCart, contentDescription = null,
+                        tint = if (buyMode) Xp.Gold else ink, modifier = Modifier.size(22.dp),
+                    )
+                    Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(if (buyMode) "Mode achat activé" else "Mode achat : prêt à copier", style = MaterialTheme.typography.titleSmall, color = Color.White)
-                        Muted(
+                        Text(if (buyMode) "Mode achat activé" else "Mode achat : prêt à copier", style = MaterialTheme.typography.titleSmall, color = if (buyMode) Xp.Gold else ink)
+                        Text(
                             if (buyMode) "Sur Coinbase Advanced : Acheter › Limite › colle le prix et la quantité. Frais estimés d'après tes vrais ordres : ≈ ${Money.eur(buys.sumOf { it.eur } * a.feeRate, 2)} pour la semaine."
-                            else "Prix et quantité prêts à copier pour chaque crypto.",
+                            else "Prix et quantité pour chaque crypto",
+                            style = MaterialTheme.typography.bodySmall, color = if (buyMode) Xp.Ice else ink.copy(alpha = 0.8f),
                         )
                     }
+                    Text(if (buyMode) "▴" else "›", style = MaterialTheme.typography.titleLarge, color = if (buyMode) Xp.Gold else ink)
                 }
                 Spacer(Modifier.height(6.dp))
                 Text("Les montants te ramènent pile à ta répartition. Touche une crypto pour son analyse.", style = MaterialTheme.typography.bodyMedium, color = Xp.Slate)
@@ -243,12 +274,13 @@ fun LazyListScope.simpleHome(
                 Spacer(Modifier.height(14.dp))
                 Button(
                     onClick = { onDone(buys.map { it.symbol to it.eur }) },
-                    colors = ButtonDefaults.buttonColors(containerColor = Xp.Gold, contentColor = Color(0xFF231700)),
+                    colors = ButtonDefaults.buttonColors(containerColor = Xp.Cyan, contentColor = Color(0xFF02161D)),
                     shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth().height(52.dp),
                 ) { Text("C'est fait, j'ai acheté", style = MaterialTheme.typography.titleMedium) }
                 Spacer(Modifier.height(6.dp))
-                Muted("Tu achètes toi-même sur Coinbase. L'app ne touche jamais à ton argent.")
+                Muted("Tu achètes toi-même sur Coinbase. L'app ne touche jamais à ton argent.", Modifier.padding(horizontal = 4.dp))
             }
+        }
         }
     }
 
@@ -276,5 +308,43 @@ fun LazyListScope.simpleHome(
         }
         Spacer(Modifier.height(10.dp))
         Muted("Conseils seulement, jamais de garantie de gain.", Modifier.padding(horizontal = 8.dp), small = false)
+    }
+}
+
+
+/** Fond de la carte de la semaine. */
+private val WeekInk = Color(0xFF0D111D)
+
+/** Grands montants de l'accueil. */
+private val BigNumber = TextStyle(fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 34.sp, letterSpacing = (-1).sp)
+
+/** Pastille ronde aux vraies couleurs de la crypto. */
+@Composable
+private fun SolidCoin(sym: String, size: Int) {
+    val c = coinColor(sym)
+    val fg = if (c.luminance() > 0.4f) Color(0xFF0B0F1A) else Color.White
+    Box(Modifier.size(size.dp).clip(CircleShape).background(c), contentAlignment = Alignment.Center) {
+        Text(sym.take(4), style = MaterialTheme.typography.labelSmall.copy(fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 10.sp), color = fg)
+    }
+}
+
+/** Petit badge d'état : on freine, on rattrape, pile dedans. */
+@Composable
+private fun Pill(text: String, fg: Color, bg: Color) {
+    Text(
+        text, style = MaterialTheme.typography.labelSmall, color = fg, maxLines = 1,
+        modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(bg).padding(horizontal = 8.dp, vertical = 2.dp),
+    )
+}
+
+/** Mini-barre : ta part actuelle, et un repère blanc pour la cible. */
+@Composable
+private fun TargetBar(now: Double, target: Double, color: Color) {
+    val scale = maxOf(0.6, now * 1.1, target * 1.1)
+    BoxWithConstraints(Modifier.fillMaxWidth().height(10.dp), contentAlignment = Alignment.CenterStart) {
+        Box(Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).background(Color(0xFF1B2740)))
+        Box(Modifier.fillMaxWidth((now / scale).toFloat().coerceIn(0.02f, 1f)).height(4.dp).clip(RoundedCornerShape(2.dp)).background(color))
+        val x = maxWidth * (target / scale).toFloat().coerceIn(0f, 1f)
+        Box(Modifier.offset(x = (x - 1.dp).coerceAtLeast(0.dp)).width(2.dp).height(10.dp).clip(RoundedCornerShape(1.dp)).background(Xp.Ice))
     }
 }
