@@ -207,7 +207,10 @@ fun LazyListScope.simpleHome(
                             a.dipHunter?.line(b.symbol)?.let { h -> dipLine(h) }
                         }
                         Spacer(Modifier.width(10.dp))
-                        Text(Money.eur(b.eur, 0), style = MaterialTheme.typography.titleLarge, color = Xp.Ice)
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text(Money.eur(b.eur, 0), style = MaterialTheme.typography.titleLarge, color = Xp.Ice)
+                            Text("cette semaine", style = MaterialTheme.typography.labelSmall, color = Xp.Slate)
+                        }
                         Text("  ›", style = MaterialTheme.typography.titleLarge, color = Color(0xFF5A6884))
                     }
                 }

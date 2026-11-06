@@ -58,9 +58,9 @@ fun hunterIntro(h: DipHunter.Result) {
         Spacer(Modifier.width(8.dp))
         Text(
             when {
-                h.deadline -> "vendredi : on achète tout le reste"
+                h.deadline -> "on est vendredi : tout s'achète aujourd'hui"
                 ready > 0 -> "$ready creux détecté${if (ready > 1) "s" else ""}, c'est le moment"
-                else -> "40 % maintenant, le reste attend −3 %"
+                else -> "40 % aujourd'hui, le reste attend une baisse de 3 %"
             },
             style = MaterialTheme.typography.labelMedium, color = Xp.Ice,
         )
@@ -71,19 +71,21 @@ fun hunterIntro(h: DipHunter.Result) {
 @Composable
 fun dipLine(l: DipHunter.Line) {
     Spacer(Modifier.height(6.dp))
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        if (l.nowEur >= 1) {
-            Text("${Money.eur(l.nowEur, 0)} maintenant", style = MaterialTheme.typography.labelSmall, color = Xp.Ice)
-        }
-        if (l.laterEur >= 1) {
-            if (l.nowEur >= 1) Text("  ·  ", style = MaterialTheme.typography.labelSmall, color = Xp.Slate)
-            val ch = l.change?.let { " (${Money.pct(it, true)} depuis lundi)" } ?: ""
-            val (txt, col) = when (l.state) {
-                DipHunter.State.DIP -> "${Money.eur(l.laterEur, 0)} : creux, achète !" to Vivid.Bulls
-                DipHunter.State.DEADLINE -> "${Money.eur(l.laterEur, 0)} : à acheter aujourd'hui" to Xp.Gold
-                else -> "${Money.eur(l.laterEur, 0)} attend −3 %$ch" to Xp.Slate
-            }
-            Text(txt, style = MaterialTheme.typography.labelSmall, color = col, maxLines = 1)
+    val total = l.nowEur + l.laterEur
+    val s = MaterialTheme.typography.labelSmall
+    when {
+        // Rien en attente, ou vendredi / creux atteint : tout s'achète aujourd'hui, une seule phrase.
+        l.laterEur < 1 || l.state == DipHunter.State.DEADLINE ->
+            Text("Achète ${Money.eur(total, 0)} aujourd'hui", style = s, color = Xp.Gold)
+        l.state == DipHunter.State.DIP ->
+            Text("Creux atteint : achète ${Money.eur(total, 0)} aujourd'hui", style = s, color = Vivid.Bulls)
+        else -> Column {
+            if (l.nowEur >= 1) Text("Achète ${Money.eur(l.nowEur, 0)} aujourd'hui", style = s, color = Xp.Ice)
+            val ch = l.change?.let { " · ${Money.pct(it, true)} depuis lundi" } ?: ""
+            Text(
+                "${Money.eur(l.laterEur, 0)} en attente d'une baisse de 3 % (au plus tard vendredi)$ch",
+                style = s, color = Xp.Slate,
+            )
         }
     }
 }
