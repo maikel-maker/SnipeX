@@ -59,7 +59,7 @@ fun hunterIntro(h: DipHunter.Result) {
         Spacer(Modifier.width(8.dp))
         Text(
             when {
-                h.deadline -> "on est vendredi : tout s'achète aujourd'hui"
+                h.deadline -> "on est ${todayName()} : tout s'achète aujourd'hui"
                 ready > 0 -> "$ready creux détecté${if (ready > 1) "s" else ""}, c'est le moment"
                 else -> "40 % aujourd'hui, le reste attend une baisse de 3 %"
             },
@@ -288,4 +288,12 @@ fun rebalanceCard(r: Rebalance.Summary) {
         Spacer(Modifier.height(8.dp))
         Muted("Tu restes 100 % investi : rien ne repasse en euros. Ordre limite conseillé (frais maker plus bas). GEOD n'est jamais vendu sous son seuil x20.")
     }
+}
+
+
+/** Jour de la semaine en toutes lettres, heure du téléphone (ex. « samedi »). */
+private fun todayName(): String = when (Calendar.getInstance().get(Calendar.DAY_OF_WEEK)) {
+    Calendar.MONDAY -> "lundi"; Calendar.TUESDAY -> "mardi"; Calendar.WEDNESDAY -> "mercredi"
+    Calendar.THURSDAY -> "jeudi"; Calendar.FRIDAY -> "vendredi"; Calendar.SATURDAY -> "samedi"
+    else -> "dimanche"
 }
