@@ -33,7 +33,9 @@ private fun plain(raw: String): Plain {
     }
     Regex("""^(\w+) : l'historique compte plus que ton solde \(([^ ]+) contre ([^)]+)\)""").find(raw)?.let {
         val (sym, hist, real) = it.destructured
-        return Plain("⚠️", "$sym : ton solde réel est de $real, mais l'historique en compte $hist. Une vente ou un envoi n'a pas été bien lu. Ton solde et sa valeur sont justes (ils viennent directement de Coinbase), seul ton prix moyen d'achat de $sym peut être un peu faux.", true)
+        val gap = (hist.replace(",", ".").toDoubleOrNull() ?: 0.0) - (real.replace(",", ".").toDoubleOrNull() ?: 0.0)
+        val gapTxt = if (gap > 0) String.format(java.util.Locale.FRANCE, "%.8f", gap).trimEnd('0').trimEnd(',') else "une partie"
+        return Plain("ℹ️", "$sym : $gapTxt $sym sont sortis de ton compte sans trace lisible dans l'historique Coinbase (une vente ou un retrait). Xcap s'aligne sur ton vrai solde : ta quantité, sa valeur et ton prix moyen d'achat restent justes. Seul le gain ou la perte de cette sortie n'est pas compté.", false)
     }
     Regex("""^(\w+) : (.+) détenu\(s\) sans historique d'achat""").find(raw)?.let {
         val (sym, q) = it.destructured
