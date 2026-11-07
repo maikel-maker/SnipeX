@@ -24,6 +24,8 @@ data class Snapshot(
     val pricesAt: Long?,
     val syncedAccounts: Int,
     val totalAccounts: Int,
+    /** Paires Coinbase disponibles (pour conseiller l'ordre le moins cher, ex. ETH-BTC). */
+    val pairs: Set<String> = emptySet(),
 )
 
 data class SyncReport(val newOps: Int, val errors: List<String>)
@@ -209,6 +211,7 @@ class Repo(private val ctx: Context) {
             secrets.has(), ops, balances, prices, ch, vol, daily, usdEurNow(), fx, fills, s,
             dao.meta("lastSync")?.toLongOrNull(), dao.meta("pricesAt")?.toLongOrNull(),
             acc.count { it.synced }, acc.size,
+            products.values.filter { it.online }.map { it.id }.toSet(),
         )
     }
 

@@ -26,6 +26,7 @@ import be.maikel.xplorer.domain.Cap
 import be.maikel.xplorer.domain.DipHunter
 import be.maikel.xplorer.domain.Guardian
 import be.maikel.xplorer.domain.Mirror
+import be.maikel.xplorer.domain.Rebalance
 import be.maikel.xplorer.domain.Money
 import be.maikel.xplorer.domain.Sentinel
 import java.text.SimpleDateFormat
@@ -257,5 +258,34 @@ fun capCard(c: Cap.Result) {
         }
         Spacer(Modifier.height(6.dp))
         Muted("Des hypothèses, pas des promesses : la crypto peut aussi baisser fortement.")
+    }
+}
+
+
+// ─────────────────────────────── Rééquilibrage ───────────────────────────────
+
+@Composable
+fun rebalanceCard(r: Rebalance.Summary) {
+    SectionTitle("Rééquilibrage conseillé")
+    Glass(padding = 18) {
+        Text(r.reason, style = MaterialTheme.typography.bodyMedium, color = Xp.Ice)
+        Spacer(Modifier.height(10.dp))
+        r.moves.forEach { m ->
+            Row(
+                Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(14.dp))
+                    .background(Xp.Cyan.copy(alpha = 0.08f)).padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("${m.from} → ${m.to}", style = MaterialTheme.typography.titleMedium, color = Xp.Ice, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(4.dp))
+                    Text(m.instruction, style = MaterialTheme.typography.bodyMedium, color = Xp.Ice)
+                }
+                Spacer(Modifier.width(10.dp))
+                Text(Money.eur(m.eur, 0), style = MaterialTheme.typography.titleLarge, color = Xp.Gold)
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Muted("Tu restes 100 % investi : rien ne repasse en euros. Ordre limite conseillé (frais maker plus bas). GEOD n'est jamais vendu sous son seuil x20.")
     }
 }

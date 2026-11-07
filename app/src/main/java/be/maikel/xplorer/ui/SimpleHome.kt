@@ -264,6 +264,7 @@ fun LazyListScope.simpleHome(
     }
 
     // Le Miroir, la Sentinelle GEOD et Cap 2030.
+    a.rebalance?.let { r -> item { rebalanceCard(r) } }
     a.mirror?.let { m -> item { mirrorCard(m) } }
     a.sentinel?.let { s -> item { sentinelCard(s) } }
     a.cap?.let { c -> item { capCard(c) } }

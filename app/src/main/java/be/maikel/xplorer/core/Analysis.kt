@@ -84,6 +84,8 @@ data class Analysis(
     val guardian: be.maikel.xplorer.domain.Guardian.Result? = null,
     /** Rang du lundi de la semaine dans le mois (5 = semaine de pause). */
     val mondayRank: Int = 1,
+    /** Rééquilibrage par le haut (crypto → crypto), seulement quand un écart devient grand. */
+    val rebalance: be.maikel.xplorer.domain.Rebalance.Summary? = null,
 )
 
 /** Un mouvement d'argent qui compte dans « J'ai mis ». [eur] positif = apport, négatif = retrait. */
@@ -200,6 +202,14 @@ object Analyzer {
         val dayChange = ledger.positions.sumOf { p -> s.change24[p.symbol]?.let { c -> p.value - p.value / (1 + c) } ?: 0.0 }
         val dayPct = if (ledger.cryptoEur - dayChange > 0) dayChange / (ledger.cryptoEur - dayChange) else Double.NaN
 
+        val geodPrice = s.prices["GEOD"] ?: 0.0
+        val rebalance = try {
+            be.maikel.xplorer.domain.Rebalance.compute(
+                ledger.positions.associate { it.symbol to it.value }, st.targets, s.pairs,
+                locked = if (geodPrice < st.geodBase * st.geodMultiple) setOf("GEOD") else emptySet(),
+            )
+        } catch (e: Exception) { null }
+
         val issues = ledger.issues.toMutableList()
         if (s.hasKey && s.totalAccounts > s.syncedAccounts)
             issues += "${s.syncedAccounts} comptes Coinbase lus sur ${s.totalAccounts} (les comptes vides et inactifs sont ignorés)."
@@ -212,7 +222,8 @@ object Analyzer {
             week, budget == null, cashWarning,
             arena, arenaPlan, arenaBacktest, milestones, journal, btcWeek, capitalLines,
             weekBudget, weekBought, journal.feePct,
-            dipHunter, mirror, cap, sentinel, guardian, be.maikel.xplorer.domain.Budget.mondayRank(monday))
+            dipHunter, mirror, cap, sentinel, guardian, be.maikel.xplorer.domain.Budget.mondayRank(monday),
+            rebalance = rebalance)
     }
 
     private fun health(s: Snapshot, l: LedgerResult, h: PortfolioHistory?): Health {
