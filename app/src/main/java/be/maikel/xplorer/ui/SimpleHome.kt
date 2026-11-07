@@ -127,6 +127,12 @@ fun LazyListScope.simpleHome(
     // 2. La consigne de la semaine.
     // Ordre : de ta plus grosse crypto à la plus petite.
     val held = l.positions.associate { it.symbol to it.value }
+    // Règle de Maïkel : aucune crypto possédée n'est jamais masquée (même sans achat cette semaine).
+    val planBySym = a.plan.lines.associateBy { it.symbol }
+    val rows = (a.plan.lines.map { it.symbol } + l.positions.filter { it.value > 0.0 }.map { it.symbol })
+        .distinct()
+        .map { sym -> HomeRow(sym, planBySym[sym]?.eur ?: 0.0) }
+        .sortedByDescending { held[it.symbol] ?: 0.0 }
     val buys = a.plan.lines.filter { it.eur > 0 }.sortedByDescending { held[it.symbol] ?: 0.0 }
     item {
         Spacer(Modifier.height(14.dp))
@@ -168,16 +174,19 @@ fun LazyListScope.simpleHome(
                     Spacer(Modifier.height(4.dp))
                     Text(a.plan.headline, style = MaterialTheme.typography.bodyLarge, color = Xp.Ice)
                 }
+                Spacer(Modifier.height(10.dp))
             } else {
                 if (a.weekBought >= 1) Muted("Il te reste à acheter :", Modifier.padding(start = 4.dp, bottom = 4.dp), small = false)
                 a.dipHunter?.let { h -> hunterIntro(h) }
-                buys.forEach { b ->
+            }
+                rows.forEach { b ->
                     val d = a.arena[b.symbol]
                     // Pourquoi ce montant : la cible contre ce que tu as aujourd'hui.
                     val target = a.snap.settings.targets[b.symbol] ?: 0.0
                     val now = if (l.cryptoEur > 0) (held[b.symbol] ?: 0.0) / l.cryptoEur else 0.0
                     val gap = now - target
                     val (status, fg, bg) = when {
+                        target <= 0.0 -> Triple("hors plan", Color(0xFFB7C2D6), Color(0xFF1B2233))
                         gap < -0.01 -> Triple("on rattrape", Xp.Cyan, Color(0xFF0E2A33))
                         gap > 0.01 -> Triple("on freine", Xp.Gold, Color(0xFF2A2210))
                         else -> Triple("pile dedans", Color(0xFFB7C2D6), Color(0xFF1B2233))
@@ -204,16 +213,23 @@ fun LazyListScope.simpleHome(
                                     color = if (d.score > 0) Vivid.Bulls else Vivid.Bears,
                                 )
                             }
-                            a.dipHunter?.line(b.symbol)?.let { h -> dipLine(h) }
+                            if (b.eur > 0) a.dipHunter?.line(b.symbol)?.let { h -> dipLine(h) }
+                            else Text(
+                                if (target <= 0.0) "Hors de ta répartition : suivie, pas d'achat."
+                                else if (gap > 0.01) "Au-dessus de sa cible : pas d'achat cette semaine."
+                                else "Pile à sa cible : pas d'achat cette semaine.",
+                                style = MaterialTheme.typography.labelLarge, color = Xp.Slate,
+                            )
                         }
                         Spacer(Modifier.width(10.dp))
                         Column(horizontalAlignment = Alignment.End) {
-                            Text(Money.eur(b.eur, 0), style = MaterialTheme.typography.titleLarge, color = Xp.Ice)
-                            Text("cette semaine", style = MaterialTheme.typography.labelSmall, color = Xp.Slate)
+                            Text(Money.eur(b.eur, 0), style = MaterialTheme.typography.titleLarge, color = if (b.eur > 0) Xp.Ice else Xp.Slate)
+                            Text(if (b.eur > 0) "cette semaine" else "pas d'achat", style = MaterialTheme.typography.labelSmall, color = Xp.Slate)
                         }
                         Text("  ›", style = MaterialTheme.typography.titleLarge, color = Color(0xFF5A6884))
                     }
                 }
+                if (buys.isNotEmpty()) {
                 Spacer(Modifier.height(10.dp))
                 Spacer(Modifier.height(6.dp))
                 Text("Les montants te ramènent pile à ta répartition. Touche une crypto pour son analyse.", style = MaterialTheme.typography.bodyMedium, color = Xp.Slate)
@@ -242,7 +258,7 @@ fun LazyListScope.simpleHome(
                 ) { Text("C'est fait, j'ai acheté", style = MaterialTheme.typography.titleMedium) }
                 Spacer(Modifier.height(6.dp))
                 Muted("Tu achètes toi-même sur Coinbase. L'app ne touche jamais à ton argent.", Modifier.padding(horizontal = 4.dp))
-            }
+                }
         }
         }
     }
@@ -316,3 +332,7 @@ private fun TargetBar(now: Double, target: Double, color: Color) {
         Box(Modifier.offset(x = (x - 1.dp).coerceAtLeast(0.dp)).width(2.dp).height(10.dp).clip(RoundedCornerShape(1.dp)).background(Xp.Ice))
     }
 }
+
+
+/** Une ligne de la carte de la semaine : chaque crypto possédée ou visée, achat éventuellement nul. */
+private data class HomeRow(val symbol: String, val eur: Double)

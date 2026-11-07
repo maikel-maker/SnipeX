@@ -20,7 +20,7 @@ import be.maikel.xplorer.domain.Money
 fun LazyListScope.marketsScreen(a: Analysis?, onAsset: (String) -> Unit) {
     if (a == null) { item { Muted("Chargement…") }; return }
     val st = a.snap.settings
-    val owned = a.ledger.positions.filter { it.value > 1 }.map { it.symbol }
+    val owned = a.ledger.positions.filter { it.value > 0.0 }.map { it.symbol }
     val mine = (st.targets.keys + owned).toSet().sortedByDescending { st.targets[it] ?: 0.0 }
     val watch = st.watchlist.filter { it !in mine }
     item { SectionTitle("Mes cryptos") }
