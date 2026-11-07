@@ -186,6 +186,12 @@ class Repo(private val ctx: Context) {
         var ops = dao.ops().map { it.toOp() }
         // Si Coinbase ne renvoie pas les exécutions Advanced dans l'historique, on les reconstitue.
         if (ops.none { it.type == "advanced_trade_fill" } && fills.isNotEmpty()) ops = ops + fillsToOps(fills)
+        else {
+            // Exécution Advanced absente de l'historique (opération mal lue) : on la reprend depuis les fills.
+            val knownOrders = ops.mapNotNull { it.orderId.ifEmpty { null } }.toHashSet()
+            val missing = fills.filter { it.orderId.isNotEmpty() && it.orderId !in knownOrders }
+            if (missing.isNotEmpty()) ops = ops + fillsToOps(missing)
+        }
         val syms = (balances.keys + s.targets.keys + s.watchlist + "BTC").filter { !Ledger.isCash(it) }.toSet()
         val daily = syms.associateWith { dailyCandles(it) }
         val prices = HashMap<String, Double>()

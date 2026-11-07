@@ -103,6 +103,7 @@ class CoinbaseApi(private val client: OkHttpClient = defaultClient()) {
      */
     suspend fun transactions(key: CoinbaseAuth.Key, accountId: String, accountCur: String, known: (String) -> Boolean): List<Op> {
         val out = mutableListOf<Op>()
+        val recheckSince = System.currentTimeMillis() - 45L * 86_400_000L
         var next: String? = "/v2/accounts/$accountId/transactions?limit=100&order=desc"
         var pages = 0
         loop@ while (next != null && pages++ < 200) {
@@ -110,7 +111,12 @@ class CoinbaseApi(private val client: OkHttpClient = defaultClient()) {
             for (e in j.a("data") ?: JsonArray(emptyList())) {
                 val o = e.obj() ?: continue
                 val id = o.s("id") ?: continue
-                if (known(id)) break@loop
+                // Une opération « en attente » lors d'une synchro précédente n'a pas été enregistrée.
+                // On ne s'arrête donc pas à la première opération connue : on revérifie les 45 derniers jours.
+                if (known(id)) {
+                    if (parseTime(o.s("created_at")) < recheckSince) break@loop
+                    continue
+                }
                 val status = o.s("status") ?: "completed"
                 if (status != "completed") continue
                 parseTx(o, accountId, accountCur)?.let { out += it }
